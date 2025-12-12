@@ -84,6 +84,7 @@
             <th class="text-left p-2">Mecz</th>
             <th class="text-left p-2">Rynek</th>
             <th class="text-left p-2">Opis</th>
+            <th class="text-right p-2" data-sort-method="number">Odds</th>
             <th class="text-right p-2" data-sort-method="number">Diff</th>
             <th class="text-right p-2" data-sort-method="number">Value</th>
             <th class="text-left p-2" data-sort-method="string">Najlepszy bukmacher</th>
@@ -153,6 +154,13 @@
           tdDesc.className = "p-2";
           tdDesc.textContent = row.description;
 
+          const tdLine = document.createElement("td");
+          tdLine.className = "text-right p-2";
+          tdLine.dataset.col = "line_odds";
+          tdLine.dataset.value = Number.isFinite(row.line_odds) ? String(row.line_odds) : "";
+          tdLine.textContent = fmt2(row.line_odds);
+
+
           const tdDiff = document.createElement("td");
           tdDiff.className = "text-right p-2";
           tdDiff.dataset.col = "diff";
@@ -162,19 +170,20 @@
           const tdVal = document.createElement("td");
           tdVal.className = "text-right p-2";
           tdVal.dataset.col = "value";
-          tdVal.dataset.value = Number.isFinite(row.weighted_sum) ? String(row.weighted_sum) : "";
-          tdVal.textContent = fmt2(row.weighted_sum);
+          tdVal.dataset.value = Number.isFinite(row.value) ? String(row.value) : "";
+          tdVal.textContent = fmt2(row.value);
+
 
           const tdBest = document.createElement("td");
           tdBest.className = "p-2 best-bk";
           tdBest.dataset.value = "";
 
-          tr.append(tdMatch, tdMarket, tdDesc, tdDiff, tdVal, tdBest);
+          tr.append(tdMatch, tdMarket, tdDesc, tdLine, tdDiff, tdVal, tdBest);
 
           for (const bk of bookmakers) {
             const td = document.createElement("td");
             td.className = "text-right p-2";
-            const v = row.bookmakers?.[bk];
+            const v = row.odds?.[bk];
             td.dataset.value = Number.isFinite(v) ? String(v) : "";
             td.textContent = fmt2(v);
             tr.appendChild(td);
@@ -239,20 +248,17 @@
           const textMatch = term === '' || row.textContent.toLowerCase().includes(term);
           const notYellow = !hideYellow || !row.textContent.toLowerCase().includes('yellow card');
 
-          // filtr kursu z końca Opisu: "... - 1.14"
+          // warunek kursów (line_odds z JSON)
           let passOdds = true;
           if (!isNaN(oddsVal) && oddsCondition) {
-            const descCell = row.cells[2]; // Opis
-            const descText = (descCell?.textContent ?? "").trim();
-            const m = descText.match(/-?\s*([0-9]+(?:[.,][0-9]+)?)\s*$/);
-            const extracted = m ? parseFloat(m[1].replace(",", ".")) : NaN;
-
-            if (Number.isFinite(extracted)) {
-              passOdds = oddsCondition === "above" ? (extracted > oddsVal) : (extracted < oddsVal);
-            } else {
+            const lineOdds = toNumFromCell(row.querySelector('td[data-col="line_odds"]'));
+            if (!Number.isFinite(lineOdds)) {
               passOdds = false;
+            } else {
+              passOdds = oddsCondition === "above" ? (lineOdds > oddsVal) : (lineOdds < oddsVal);
             }
           }
+
 
           if (passVal && textMatch && notYellow && passOdds) {
             row.style.display = '';
@@ -267,9 +273,9 @@
 
       // --- init ---
       try {
-        const res = await fetch("frontend.json");
-        const { rows, bookmakers } = await res.json();
-        renderTable(rows, bookmakers);
+        const res = await fetch("frontend.json?v=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        renderTable(data);
         updateBestBookmakers();
 
         const sorter = new Tablesort(table);
