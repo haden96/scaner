@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tabela Zakładów</title>
+
+  <!-- Tailwind -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+
+  <!-- Tablesort -->
+  <script src="https://cdn.jsdelivr.net/npm/tablesort@5.2.1/dist/tablesort.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tablesort@5.2.1/dist/sorts/tablesort.number.min.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    .table-wrap { overflow-x: auto; }
+    thead th { position: sticky; top: 0; z-index: 1; }
+    tr.highlight { background-color: #ecfff3; }
+    table tr>*:nth-child(5) { background-color: #e0f2fe; color: #1e3a8a; }
+
+    body.dark { background-color: #0f172a; color: #e5e7eb; }
+    body.dark .bg-white { background-color: #020617; }
+    body.dark .bg-gray-100 { background-color: #0f172a; }
+    body.dark .bg-gray-200 { background-color: #020617; }
+    body.dark th, body.dark td { border-color: #1e293b; }
+    body.dark input, body.dark select { background-color: #020617; color: #e5e7eb; border-color: #334155; }
+    body.dark button { background-color: #1e293b; color: #e5e7eb; }
+    body.dark table tr>*:nth-child(5) { background-color: #082f49; color: #7dd3fc; }
+  </style>
+</head>
+
+<body class="p-6 bg-gray-100">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-xl font-bold mb-4">Dane bukmacherskie</h1>
+
+    <!-- Panel sterowania -->
+    <div class="bg-white p-4 shadow rounded mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="flex items-center flex-wrap gap-2">
+        <label class="font-medium">Filtruj:</label>
+        <select id="filterType" class="border p-2 rounded">
+          <option value="diff">Diff</option>
+          <option value="weighted_sum">Value</option>
+        </select>
+        <input type="number" id="minValue" step="0.01" inputmode="decimal" placeholder="Min wartość"
+               class="border p-2 rounded w-40">
+        <button id="btnFilter" class="px-3 py-2 bg-blue-600 text-white rounded">Filtruj</button>
+        <button id="btnReset" class="px-3 py-2 bg-gray-300 rounded">Reset</button>
+      </div>
+
+      <div class="flex items-center flex-wrap gap-2">
+        <label for="searchBox" class="font-medium">Szukaj:</label>
+        <input id="searchBox" type="text" placeholder="Mecz/rynek/opis..."
+               class="border p-2 rounded flex-1 min-w-[220px]" />
+        <span id="rowCount" class="text-sm text-gray-500 ml-auto"></span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-3">
+      <input type="checkbox" id="hideYellowCards" class="h-4 w-4">
+      <label for="hideYellowCards" class="text-sm font-medium">Ukryj Yellow Cards</label>
+
+      <div class="ml-auto flex items-center gap-2">
+        <button id="darkToggle" class="px-4 py-2 rounded bg-gray-800 text-white">🌙 Tryb nocny</button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-3">
+      <label class="text-sm font-medium">Filtr kursów (z końca “Opis”):</label>
+      <select id="oddsCondition" class="border p-2 rounded">
+        <option value="">-- wybierz --</option>
+        <option value="above">Powyżej</option>
+        <option value="below">Poniżej</option>
+      </select>
+      <input type="number" id="oddsValue" step="0.01" inputmode="decimal" placeholder="Kurs"
+             class="border p-2 rounded w-28">
+    </div>
+
+    <!-- Tabela -->
+    <div class="table-wrap bg-white shadow rounded">
+      <table class="table-auto w-full" id="bettingTable" aria-describedby="rowCount">
+        <thead class="bg-gray-200">
+          <tr id="tableHeadRow">
+            <th class="text-left p-2">Mecz</th>
+            <th class="text-left p-2">Rynek</th>
+            <th class="text-left p-2">Opis</th>
+            <th class="text-right p-2" data-sort-method="number">Diff</th>
+            <th class="text-right p-2" data-sort-method="number">Value</th>
+            <th class="text-left p-2" data-sort-method="string">Najlepszy bukmacher</th>
+            <!-- kolumny bukmacherów dopisze JS -->
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const table = document.getElementById('bettingTable');
+      const tbody = document.getElementById('tableBody');
+      const headRow = document.getElementById('tableHeadRow');
+
+      const filterTypeEl = document.getElementById('filterType');
+      const minValueEl = document.getElementById('minValue');
+      const btnFilter = document.getElementById('btnFilter');
+      const btnReset = document.getElementById('btnReset');
+      const searchBox = document.getElementById('searchBox');
+      const rowCount = document.getElementById('rowCount');
+
+      const hideYellowCardsEl = document.getElementById('hideYellowCards');
+      const oddsConditionEl = document.getElementById('oddsCondition');
+      const oddsValueEl = document.getElementById('oddsValue');
+
+      // --- utils ---
+      const toNumFromCell = (el) => {
+        if (!el) return NaN;
+        const s = (el.dataset.value ?? el.textContent ?? '').toString().replace(',', '.').trim();
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : NaN;
+      };
+
+      const fmt2 = (x) => Number.isFinite(x) ? x.toFixed(2) : '';
+
+      async function loadTableData() {
+        const res = await fetch("processed_output.json?v=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const raw = await res.json();
+
+        const rows = [];
+        const bookmakersSet = new Set();
+
+        // format: league -> match -> category -> submarket -> directionKey -> lineKey -> lineInfo
+        for (const [league, matches] of Object.entries(raw)) {
+          for (const [matchName, categories] of Object.entries(matches)) {
+            for (const [categoryName, submarkets] of Object.entries(categories)) {
+              for (const [submarketName, directions] of Object.entries(submarkets)) {
+                for (const [directionKey, oddsGroup] of Object.entries(directions)) {
+                  if (typeof oddsGroup !== "object" || oddsGroup === null) continue;
+
+                  for (const [lineKey, lineInfo] of Object.entries(oddsGroup)) {
+                    if (typeof lineInfo !== "object" || lineInfo === null || Array.isArray(lineInfo)) continue;
+
+                    const bookmakers = lineInfo.bookmakers || {};
+                    const diff = bookmakers.Diff;
+                    const weightedSum = lineInfo.weighted_sum;
+
+                    const filteredBookmakers = {};
+                    for (const [bk, val] of Object.entries(bookmakers)) {
+                      if (bk === "Diff") continue;
+                      filteredBookmakers[bk] = val;
+                      bookmakersSet.add(bk);
+                    }
+
+                    rows.push({
+                      league,
+                      match: matchName,
+                      market: `${categoryName}/${submarketName}/${directionKey}`,
+                      description: lineKey,
+                      diff,
+                      weighted_sum: weightedSum,
+                      bookmakers: filteredBookmakers
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        return { rows, bookmakers: Array.from(bookmakersSet).sort() };
+      }
+
+      function renderTable({ rows, bookmakers }) {
+        // wyczyść poprzednie bukmacher-th (zostaw 6 pierwszych kolumn)
+        while (headRow.cells.length > 6) headRow.deleteCell(6);
+
+        // dodaj nagłówki bukmacherów
+        for (const bk of bookmakers) {
+          const th = document.createElement("th");
+          th.className = "text-right p-2";
+          th.setAttribute("data-sort-method", "number");
+          th.textContent = bk;
+          headRow.appendChild(th);
+        }
+
+        // wiersze
+        const frag = document.createDocumentFragment();
+        for (const row of rows) {
+          const tr = document.createElement("tr");
+          tr.className = "border-t";
+
+          const tdMatch = document.createElement("td");
+          tdMatch.className = "p-2";
+          tdMatch.textContent = row.match;
+
+          const tdMarket = document.createElement("td");
+          tdMarket.className = "p-2";
+          tdMarket.textContent = row.market;
+
+          const tdDesc = document.createElement("td");
+          tdDesc.className = "p-2";
+          tdDesc.textContent = row.description;
+
+          const tdDiff = document.createElement("td");
+          tdDiff.className = "text-right p-2";
+          tdDiff.dataset.col = "diff";
+          tdDiff.dataset.value = Number.isFinite(row.diff) ? String(row.diff) : "";
+          tdDiff.textContent = fmt2(row.diff);
+
+          const tdVal = document.createElement("td");
+          tdVal.className = "text-right p-2";
+          tdVal.dataset.col = "value";
+          tdVal.dataset.value = Number.isFinite(row.weighted_sum) ? String(row.weighted_sum) : "";
+          tdVal.textContent = fmt2(row.weighted_sum);
+
+          const tdBest = document.createElement("td");
+          tdBest.className = "p-2 best-bk";
+          tdBest.dataset.value = "";
+
+          tr.append(tdMatch, tdMarket, tdDesc, tdDiff, tdVal, tdBest);
+
+          for (const bk of bookmakers) {
+            const td = document.createElement("td");
+            td.className = "text-right p-2";
+            const v = row.bookmakers?.[bk];
+            td.dataset.value = Number.isFinite(v) ? String(v) : "";
+            td.textContent = fmt2(v);
+            tr.appendChild(td);
+          }
+
+          frag.appendChild(tr);
+        }
+
+        tbody.textContent = "";
+        tbody.appendChild(frag);
+      }
+
+      function updateBestBookmakers() {
+        const headerCells = Array.from(table.tHead.rows[0].cells);
+        const bestBkIndex = headerCells.findIndex(th =>
+          th.textContent.trim().toLowerCase() === 'najlepszy bukmacher'
+        );
+        const firstOddsIndex = bestBkIndex + 1;
+
+        table.querySelectorAll('tbody tr').forEach(row => {
+          const cells = Array.from(row.cells);
+          const oddsCells = cells.slice(firstOddsIndex);
+
+          let maxVal = -Infinity;
+          let bestName = '';
+
+          oddsCells.forEach((cell, relIdx) => {
+            const v = toNumFromCell(cell);
+            if (Number.isFinite(v) && v > maxVal) {
+              maxVal = v;
+              bestName = headerCells[firstOddsIndex + relIdx]?.textContent.trim() || '';
+            }
+          });
+
+          const bestCell = row.querySelector('.best-bk');
+          if (bestCell) {
+            bestCell.textContent = bestName || '';
+            bestCell.dataset.value = bestName || '';
+          }
+        });
+      }
+
+      function applyFilter() {
+        const type = filterTypeEl.value;
+        const minRaw = (minValueEl.value ?? '').trim();
+        const min = minRaw === '' ? -Infinity : parseFloat(minRaw.replace(',', '.'));
+        const term = (searchBox.value ?? '').trim().toLowerCase();
+        const hideYellow = hideYellowCardsEl.checked;
+
+        const oddsCondition = oddsConditionEl.value;
+        const oddsRaw = (oddsValueEl.value ?? '').trim();
+        const oddsVal = oddsRaw === '' ? NaN : parseFloat(oddsRaw.replace(',', '.'));
+
+        let visible = 0;
+
+        table.querySelectorAll('tbody tr').forEach(row => {
+          const cellSelector = type === 'diff' ? 'td[data-col="diff"]' : 'td[data-col="value"]';
+          const valCell = row.querySelector(cellSelector);
+          const val = toNumFromCell(valCell);
+
+          const passVal = (min === -Infinity) || (Number.isFinite(val) && val >= min);
+          const textMatch = term === '' || row.textContent.toLowerCase().includes(term);
+          const notYellow = !hideYellow || !row.textContent.toLowerCase().includes('yellow card');
+
+          // filtr kursu z końca Opisu: "... - 1.14"
+          let passOdds = true;
+          if (!isNaN(oddsVal) && oddsCondition) {
+            const descCell = row.cells[2]; // Opis
+            const descText = (descCell?.textContent ?? "").trim();
+            const m = descText.match(/-?\s*([0-9]+(?:[.,][0-9]+)?)\s*$/);
+            const extracted = m ? parseFloat(m[1].replace(",", ".")) : NaN;
+
+            if (Number.isFinite(extracted)) {
+              passOdds = oddsCondition === "above" ? (extracted > oddsVal) : (extracted < oddsVal);
+            } else {
+              passOdds = false;
+            }
+          }
+
+          if (passVal && textMatch && notYellow && passOdds) {
+            row.style.display = '';
+            visible++;
+          } else {
+            row.style.display = 'none';
+          }
+        });
+
+        rowCount.textContent = `${visible} wyników`;
+      }
+
+      // --- init ---
+      try {
+        const data = await loadTableData();
+        renderTable(data);
+        updateBestBookmakers();
+
+        const sorter = new Tablesort(table);
+        sorter.refresh();
+
+        applyFilter();
+      } catch (e) {
+        tbody.innerHTML = `<tr><td class="p-3 text-red-600" colspan="50">Błąd ładowania JSON: ${e.message}</td></tr>`;
+      }
+
+      // --- events ---
+      btnFilter.addEventListener('click', applyFilter);
+      btnReset.addEventListener('click', () => {
+        minValueEl.value = '';
+        searchBox.value = '';
+        oddsConditionEl.value = '';
+        oddsValueEl.value = '';
+        hideYellowCardsEl.checked = false;
+        table.querySelectorAll('tbody tr').forEach(r => r.style.display = '');
+        rowCount.textContent = '';
+      });
+
+      searchBox.addEventListener('input', applyFilter);
+      minValueEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilter(); });
+      searchBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilter(); });
+
+      hideYellowCardsEl.addEventListener('change', applyFilter);
+      oddsConditionEl.addEventListener('change', applyFilter);
+      oddsValueEl.addEventListener('input', applyFilter);
+      oddsValueEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilter(); });
+
+      // dark mode
+      const darkToggle = document.getElementById('darkToggle');
+      if (localStorage.getItem('darkMode') === '1') {
+        document.body.classList.add('dark');
+        darkToggle.textContent = '☀️ Tryb jasny';
+      }
+      darkToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+        localStorage.setItem('darkMode', isDark ? '1' : '0');
+        darkToggle.textContent = isDark ? '☀️ Tryb jasny' : '🌙 Tryb nocny';
+      });
+    });
+  </script>
+</body>
+</html>
