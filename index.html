@@ -10,6 +10,7 @@
   <!-- Tablesort -->
   <script src="https://cdn.jsdelivr.net/npm/tablesort@5.2.1/dist/tablesort.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tablesort@5.2.1/dist/sorts/tablesort.number.min.js"></script>
+  <meta name="robots" content="noindex, nofollow">
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -163,8 +164,10 @@
 
           const tdBestOdds = document.createElement("td");
           tdBestOdds.className = "text-right p-2";
+          tdBestOdds.dataset.col = "odds";
           tdBestOdds.dataset.value = Number.isFinite(row.best_odds) ? String(row.best_odds) : "";
           tdBestOdds.textContent = fmt2(row.best_odds);
+
 
           const tdDiff = document.createElement("td");
           tdDiff.className = "text-right p-2";
@@ -220,16 +223,17 @@
           const textMatch = term === '' || row.textContent.toLowerCase().includes(term);
           const notYellow = !hideYellow || !row.textContent.toLowerCase().includes('yellow card');
 
-          // warunek kursów (line_odds z JSON)
+          // filtr kursów po kolumnie Odds (= best_odds)
           let passOdds = true;
           if (!isNaN(oddsVal) && oddsCondition) {
-            const lineOdds = toNumFromCell(row.querySelector('td[data-col="line_odds"]'));
-            if (!Number.isFinite(lineOdds)) {
+            const odds = toNumFromCell(row.querySelector('td[data-col="odds"]'));
+            if (!Number.isFinite(odds)) {
               passOdds = false;
             } else {
-              passOdds = oddsCondition === "above" ? (lineOdds > oddsVal) : (lineOdds < oddsVal);
+              passOdds = oddsCondition === "above" ? (odds > oddsVal) : (odds < oddsVal);
             }
           }
+
 
 
           if (passVal && textMatch && notYellow && passOdds) {
