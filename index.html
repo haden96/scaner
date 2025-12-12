@@ -122,55 +122,6 @@
 
       const fmt2 = (x) => Number.isFinite(x) ? x.toFixed(2) : '';
 
-      async function loadTableData() {
-        const res = await fetch("processed_output.json?v=" + Date.now(), { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const raw = await res.json();
-
-        const rows = [];
-        const bookmakersSet = new Set();
-
-        // format: league -> match -> category -> submarket -> directionKey -> lineKey -> lineInfo
-        for (const [league, matches] of Object.entries(raw)) {
-          for (const [matchName, categories] of Object.entries(matches)) {
-            for (const [categoryName, submarkets] of Object.entries(categories)) {
-              for (const [submarketName, directions] of Object.entries(submarkets)) {
-                for (const [directionKey, oddsGroup] of Object.entries(directions)) {
-                  if (typeof oddsGroup !== "object" || oddsGroup === null) continue;
-
-                  for (const [lineKey, lineInfo] of Object.entries(oddsGroup)) {
-                    if (typeof lineInfo !== "object" || lineInfo === null || Array.isArray(lineInfo)) continue;
-
-                    const bookmakers = lineInfo.bookmakers || {};
-                    const diff = bookmakers.Diff;
-                    const weightedSum = lineInfo.weighted_sum;
-
-                    const filteredBookmakers = {};
-                    for (const [bk, val] of Object.entries(bookmakers)) {
-                      if (bk === "Diff") continue;
-                      filteredBookmakers[bk] = val;
-                      bookmakersSet.add(bk);
-                    }
-
-                    rows.push({
-                      league,
-                      match: matchName,
-                      market: `${submarketName} - ${directionKey}`,
-                      description: lineKey,
-                      diff,
-                      weighted_sum: weightedSum,
-                      bookmakers: filteredBookmakers
-                    });
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        return { rows, bookmakers: Array.from(bookmakersSet).sort() };
-      }
-
       function renderTable({ rows, bookmakers }) {
         // wyczyść poprzednie bukmacher-th (zostaw 6 pierwszych kolumn)
         while (headRow.cells.length > 6) headRow.deleteCell(6);
@@ -316,8 +267,9 @@
 
       // --- init ---
       try {
-        const data = await loadTableData();
-        renderTable(data);
+        const res = await fetch("frontend.json");
+        const { rows, bookmakers } = await res.json();
+        renderTable(rows, bookmakers);
         updateBestBookmakers();
 
         const sorter = new Tablesort(table);
