@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
   <meta charset="UTF-8" />
   <title>Tabela Zakładów</title>
@@ -10,24 +11,89 @@
   <!-- Tablesort -->
   <script src="https://cdn.jsdelivr.net/npm/tablesort@5.2.1/dist/tablesort.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tablesort@5.2.1/dist/sorts/tablesort.number.min.js"></script>
-  <meta name="robots" content="noindex, nofollow">
 
+  <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
-    .table-wrap { overflow-x: auto; }
-    thead th { position: sticky; top: 0; z-index: 1; }
-    tr.highlight { background-color: #ecfff3; }
-    table tr>*:nth-child(5) { background-color: #e0f2fe; color: #1e3a8a; }
+    #bettingTable {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
 
-    body.dark { background-color: #0f172a; color: #e5e7eb; }
-    body.dark .bg-white { background-color: #020617; }
-    body.dark .bg-gray-100 { background-color: #0f172a; }
-    body.dark .bg-gray-200 { background-color: #020617; }
-    body.dark th, body.dark td { border-color: #1e293b; }
-    body.dark input, body.dark select { background-color: #020617; color: #e5e7eb; border-color: #334155; }
-    body.dark button { background-color: #1e293b; color: #e5e7eb; }
-    body.dark table tr>*:nth-child(5) { background-color: #082f49; color: #7dd3fc; }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background-color: #e5e7eb;
+      /* bg-gray-200 */
+    }
+
+    body.dark thead th {
+      background-color: #020617;
+    }
+
+
+    tr.highlight {
+      background-color: #ecfff3;
+    }
+
+    /* PODŚWIETLENIE VALUE (6. kolumna stała) */
+    table tr>*:nth-child(6) {
+      background-color: #e0f2fe;
+      color: #1e3a8a;
+    }
+
+    body.dark {
+      background-color: #0f172a;
+      color: #e5e7eb;
+    }
+
+    body.dark .bg-white {
+      background-color: #020617;
+    }
+
+    body.dark .bg-gray-100 {
+      background-color: #0f172a;
+    }
+
+    body.dark .bg-gray-200 {
+      background-color: #020617;
+    }
+
+    body.dark th,
+    body.dark td {
+      border-color: #1e293b;
+    }
+
+    body.dark input,
+    body.dark select {
+      background-color: #020617;
+      color: #e5e7eb;
+      border-color: #334155;
+    }
+
+    body.dark button {
+      background-color: #1e293b;
+      color: #e5e7eb;
+    }
+
+    /* VALUE w dark mode */
+    body.dark table tr>*:nth-child(6) {
+      background-color: #082f49;
+      color: #7dd3fc;
+    }
+
+    /* przycisk usuń */
+    .btn-del {
+      background: transparent;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.375rem;
+    }
+
+    .btn-del:hover {
+      background: rgba(239, 68, 68, 0.12);
+    }
   </style>
 </head>
 
@@ -44,7 +110,7 @@
           <option value="weighted_sum">Value</option>
         </select>
         <input type="number" id="minValue" step="0.01" inputmode="decimal" placeholder="Min wartość"
-               class="border p-2 rounded w-40">
+          class="border p-2 rounded w-40">
         <button id="btnFilter" class="px-3 py-2 bg-blue-600 text-white rounded">Filtruj</button>
         <button id="btnReset" class="px-3 py-2 bg-gray-300 rounded">Reset</button>
       </div>
@@ -52,7 +118,7 @@
       <div class="flex items-center flex-wrap gap-2">
         <label for="searchBox" class="font-medium">Szukaj:</label>
         <input id="searchBox" type="text" placeholder="Mecz/rynek/opis..."
-               class="border p-2 rounded flex-1 min-w-[220px]" />
+          class="border p-2 rounded flex-1 min-w-[220px]" />
         <span id="rowCount" class="text-sm text-gray-500 ml-auto"></span>
       </div>
     </div>
@@ -66,15 +132,34 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-2 mb-3">
-      <label class="text-sm font-medium">Filtr kursów (z końca “Opis”):</label>
-      <select id="oddsCondition" class="border p-2 rounded">
-        <option value="">-- wybierz --</option>
-        <option value="above">Powyżej</option>
-        <option value="below">Poniżej</option>
-      </select>
-      <input type="number" id="oddsValue" step="0.01" inputmode="decimal" placeholder="Kurs"
-             class="border p-2 rounded w-28">
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium">Filtr kursów (kolumna Odds):</label>
+        <select id="oddsCondition" class="border p-2 rounded">
+          <option value="">-- wybierz --</option>
+          <option value="above">Powyżej</option>
+          <option value="below">Poniżej</option>
+        </select>
+        <input type="number" id="oddsValue" step="0.01" inputmode="decimal" placeholder="Kurs"
+          class="border p-2 rounded w-28">
+      </div>
+    </div>
+
+    <!-- Bukmacherzy: filtr wierszy po best_bk + zapamiętanie -->
+    <div class="bg-white p-4 shadow rounded mb-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-sm font-medium">Pokaż tylko wiersze, gdzie najlepszy bukmacher to:</span>
+        <button id="bkAll" class="px-3 py-1 rounded bg-gray-200 text-sm">Zaznacz wszystko</button>
+        <button id="bkNone" class="px-3 py-1 rounded bg-gray-200 text-sm">Odznacz wszystko</button>
+        <button id="bkRestoreDeleted" class="px-3 py-1 rounded bg-gray-200 text-sm ml-auto">Przywróć usunięte</button>
+        <span class="text-xs text-gray-500" id="bkHint"></span>
+      </div>
+      <div id="bkList" class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2"></div>
+      <div class="text-xs text-gray-500 mt-2">
+        Checkboxy filtrują WIERSZE po kolumnie „Najlepszy bukmacher”. Wybór jest zapisywany w przeglądarce
+        (localStorage).
+        Usunięte rekordy też są zapamiętane.
+      </div>
     </div>
 
     <!-- Tabela -->
@@ -89,7 +174,8 @@
             <th class="text-right p-2" data-sort-method="number">Diff</th>
             <th class="text-right p-2" data-sort-method="number">Value</th>
             <th class="text-left p-2" data-sort-method="string">Najlepszy bukmacher</th>
-            <!-- kolumny bukmacherów dopisze JS -->
+            <!-- bukmacherzy dopisze JS -->
+            <th class="text-center p-2" data-sort-method="none">Usuń</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -114,6 +200,23 @@
       const oddsConditionEl = document.getElementById('oddsCondition');
       const oddsValueEl = document.getElementById('oddsValue');
 
+      const bkList = document.getElementById('bkList');
+      const bkAll = document.getElementById('bkAll');
+      const bkNone = document.getElementById('bkNone');
+      const bkHint = document.getElementById('bkHint');
+      const bkRestoreDeleted = document.getElementById('bkRestoreDeleted');
+
+      const LS_KEY = "bestbk_filter_selected_v1";
+      const DELETED_KEY = "deleted_rows_v1";
+
+      let allBookmakers = [];
+      let selectedBestBK = new Set();   // best_bk zaznaczone (filtr)
+      let deletedRows = new Set();      // id usunięte
+
+      // trzymamy dane w pamięci, żeby móc re-renderować po "przywróć"
+      let currentData = null;
+      let sorter = null;
+
       // --- utils ---
       const toNumFromCell = (el) => {
         if (!el) return NaN;
@@ -124,26 +227,105 @@
 
       const fmt2 = (x) => Number.isFinite(x) ? x.toFixed(2) : '';
 
+      function loadSelectedBestBK(defaultList) {
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          if (!raw) return new Set(defaultList); // domyślnie wszystko zaznaczone
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr)) return new Set(defaultList);
+          return new Set(arr.filter(x => defaultList.includes(x)));
+        } catch {
+          return new Set(defaultList);
+        }
+      }
+
+      function saveSelectedBestBK() {
+        localStorage.setItem(LS_KEY, JSON.stringify([...selectedBestBK]));
+      }
+
+      function loadDeletedRows() {
+        try {
+          const raw = localStorage.getItem(DELETED_KEY);
+          if (!raw) return new Set();
+          const arr = JSON.parse(raw);
+          if (!Array.isArray(arr)) return new Set();
+          return new Set(arr.map(String));
+        } catch {
+          return new Set();
+        }
+      }
+
+      function saveDeletedRows() {
+        localStorage.setItem(DELETED_KEY, JSON.stringify([...deletedRows]));
+      }
+
+      function updateBKHint() {
+        bkHint.textContent = `Wybrane: ${selectedBestBK.size}/${allBookmakers.length} | Usunięte: ${deletedRows.size}`;
+      }
+
+      function renderBookmakerCheckboxes(bookmakers) {
+        bkList.textContent = "";
+        const frag = document.createDocumentFragment();
+
+        for (const bk of bookmakers) {
+          const label = document.createElement("label");
+          label.className = "flex items-center gap-2 text-sm";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "h-4 w-4";
+          cb.checked = selectedBestBK.has(bk);
+
+          cb.addEventListener("change", () => {
+            if (cb.checked) selectedBestBK.add(bk);
+            else selectedBestBK.delete(bk);
+
+            saveSelectedBestBK();
+            updateBKHint();
+            applyFilter();
+          });
+
+          const span = document.createElement("span");
+          span.textContent = bk;
+
+          label.append(cb, span);
+          frag.appendChild(label);
+        }
+
+        bkList.appendChild(frag);
+        updateBKHint();
+      }
+
       function renderTable({ rows, bookmakers }) {
-        // wyczyść poprzednie bukmacher-th (zostaw 6 pierwszych kolumn)
-        // teraz zostaw 7 stałych kolumn, a usuwaj dopiero od indeksu 7
-        while (headRow.cells.length > 7) headRow.deleteCell(7);
+        // usuń poprzednie nagłówki bukmacherów (zostaw: 7 stałych + ostatnia "Usuń" = razem 8)
+        // W thead mamy: 7 stałych, potem dynamiczne bk, potem "Usuń".
+        // Czyli dynamiczne są między indeksem 7 a (len-2).
+        // Najprościej: usuń wszystko między stałymi a ostatnią kolumną.
+        while (headRow.cells.length > 8) headRow.deleteCell(7);
 
-
-        // dodaj nagłówki bukmacherów
+        // wstaw nagłówki bukmacherów PRZED ostatnią kolumną ("Usuń")
+        const deleteTh = headRow.lastElementChild;
         for (const bk of bookmakers) {
           const th = document.createElement("th");
           th.className = "text-right p-2";
           th.setAttribute("data-sort-method", "number");
           th.textContent = bk;
-          headRow.appendChild(th);
+          headRow.insertBefore(th, deleteTh);
         }
 
-        // wiersze
         const frag = document.createDocumentFragment();
+
         for (const row of rows) {
+          // wymagamy id - jeśli brak, to ten rekord jest bezużyteczny do usuwania
+          const rid = String(row.id ?? "");
+          if (!rid) continue;
+
+          // pomiń usunięte
+          if (deletedRows.has(rid)) continue;
+
           const tr = document.createElement("tr");
           tr.className = "border-t";
+          tr.dataset.id = rid;
 
           const tdMatch = document.createElement("td");
           tdMatch.className = "p-2";
@@ -157,17 +339,11 @@
           tdDesc.className = "p-2";
           tdDesc.textContent = row.description;
 
-          
-          const tdBest = document.createElement("td");
-          tdBest.className = "p-2";
-          tdBest.textContent = row.best_bk ?? "";
-
           const tdBestOdds = document.createElement("td");
           tdBestOdds.className = "text-right p-2";
           tdBestOdds.dataset.col = "odds";
           tdBestOdds.dataset.value = Number.isFinite(row.best_odds) ? String(row.best_odds) : "";
           tdBestOdds.textContent = fmt2(row.best_odds);
-
 
           const tdDiff = document.createElement("td");
           tdDiff.className = "text-right p-2";
@@ -181,9 +357,15 @@
           tdVal.dataset.value = Number.isFinite(row.value) ? String(row.value) : "";
           tdVal.textContent = fmt2(row.value);
 
+          const tdBest = document.createElement("td");
+          tdBest.className = "p-2";
+          tdBest.dataset.col = "best_bk";
+          tdBest.textContent = row.best_bk ?? "";
 
-          tr.append(tdMatch, tdMarket, tdDesc, tdBest, tdBestOdds, tdDiff, tdVal, tdBest);
+          // stałe kolumny
+          tr.append(tdMatch, tdMarket, tdDesc, tdBestOdds, tdDiff, tdVal, tdBest);
 
+          // kolumny bukmacherów
           for (const bk of bookmakers) {
             const td = document.createElement("td");
             td.className = "text-right p-2";
@@ -193,6 +375,34 @@
             tr.appendChild(td);
           }
 
+          // kolumna usuń
+          const tdDelete = document.createElement("td");
+          tdDelete.className = "text-center p-2";
+
+          const btnDel = document.createElement("button");
+          btnDel.type = "button";
+          btnDel.title = "Usuń rekord";
+          btnDel.className = "btn-del text-red-600 hover:text-red-800 text-lg";
+          btnDel.textContent = "✖";
+
+          btnDel.addEventListener("click", () => {
+            const bestBk = (row.best_bk ?? "").toString().trim();
+            const desc = (row.description ?? "").toString().trim();
+            const m = (row.match ?? "").toString().trim();
+
+            const ok = confirm(`Usunąć rekord?\n\n${m}\n${bestBk} | ${desc}`);
+            if (!ok) return;
+
+            deletedRows.add(rid);
+            saveDeletedRows();
+            tr.remove();
+            updateBKHint();
+            applyFilter();
+          });
+
+          tdDelete.appendChild(btnDel);
+          tr.appendChild(tdDelete);
+
           frag.appendChild(tr);
         }
 
@@ -200,7 +410,6 @@
         tbody.appendChild(frag);
       }
 
-      
       function applyFilter() {
         const type = filterTypeEl.value;
         const minRaw = (minValueEl.value ?? '').trim();
@@ -215,8 +424,7 @@
         let visible = 0;
 
         table.querySelectorAll('tbody tr').forEach(row => {
-          const cellSelector = type === 'diff' ? 'td[data-col="diff"]' : 'td[data-col="value"]';
-          const valCell = row.querySelector(cellSelector);
+          const valCell = row.querySelector(type === 'diff' ? 'td[data-col="diff"]' : 'td[data-col="value"]');
           const val = toNumFromCell(valCell);
 
           const passVal = (min === -Infinity) || (Number.isFinite(val) && val >= min);
@@ -234,9 +442,11 @@
             }
           }
 
+          // filtr po "Najlepszy bukmacher"
+          const bestBk = (row.querySelector('td[data-col="best_bk"]')?.textContent ?? "").trim();
+          const passBestBk = selectedBestBK.size === 0 ? true : selectedBestBK.has(bestBk);
 
-
-          if (passVal && textMatch && notYellow && passOdds) {
+          if (passVal && textMatch && notYellow && passOdds && passBestBk) {
             row.style.display = '';
             visible++;
           } else {
@@ -245,32 +455,53 @@
         });
 
         rowCount.textContent = `${visible} wyników`;
+
+        if (sorter) sorter.refresh();
+      }
+
+      function fullRerender() {
+        if (!currentData) return;
+        renderTable(currentData);
+        if (sorter) sorter.refresh();
+        applyFilter();
+        updateBKHint();
       }
 
       // --- init ---
       try {
         const res = await fetch("frontend.json?v=" + Date.now(), { cache: "no-store" });
         const data = await res.json();
+        currentData = data;
+
+        allBookmakers = data.bookmakers ?? [];
+
+        deletedRows = loadDeletedRows();
+        selectedBestBK = loadSelectedBestBK(allBookmakers);
+
+        renderBookmakerCheckboxes(allBookmakers);
         renderTable(data);
 
-        const sorter = new Tablesort(table);
+        sorter = new Tablesort(table);
         sorter.refresh();
 
         applyFilter();
+        updateBKHint();
       } catch (e) {
-        tbody.innerHTML = `<tr><td class="p-3 text-red-600" colspan="50">Błąd ładowania JSON: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td class="p-3 text-red-600" colspan="99">Błąd ładowania JSON: ${e.message}</td></tr>`;
       }
 
       // --- events ---
       btnFilter.addEventListener('click', applyFilter);
+
       btnReset.addEventListener('click', () => {
         minValueEl.value = '';
         searchBox.value = '';
         oddsConditionEl.value = '';
         oddsValueEl.value = '';
         hideYellowCardsEl.checked = false;
-        table.querySelectorAll('tbody tr').forEach(r => r.style.display = '');
-        rowCount.textContent = '';
+
+        // NIE resetujemy checkboxów bukmacherów ani usuniętych - mają się pamiętać
+        applyFilter();
       });
 
       searchBox.addEventListener('input', applyFilter);
@@ -281,6 +512,30 @@
       oddsConditionEl.addEventListener('change', applyFilter);
       oddsValueEl.addEventListener('input', applyFilter);
       oddsValueEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilter(); });
+
+      bkAll.addEventListener("click", () => {
+        selectedBestBK = new Set(allBookmakers);
+        saveSelectedBestBK();
+        bkList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        updateBKHint();
+        applyFilter();
+      });
+
+      bkNone.addEventListener("click", () => {
+        selectedBestBK = new Set();
+        saveSelectedBestBK();
+        bkList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        updateBKHint();
+        applyFilter();
+      });
+
+      bkRestoreDeleted.addEventListener("click", () => {
+        const ok = confirm("Przywrócić WSZYSTKIE usunięte rekordy? (wyczyści localStorage)");
+        if (!ok) return;
+        deletedRows = new Set();
+        localStorage.removeItem(DELETED_KEY);
+        fullRerender();
+      });
 
       // dark mode
       const darkToggle = document.getElementById('darkToggle');
@@ -297,4 +552,5 @@
     });
   </script>
 </body>
+
 </html>
