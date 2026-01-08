@@ -175,6 +175,7 @@
             <th class="text-right p-2" data-sort-method="number">Odds</th>
             <th class="text-right p-2" data-sort-method="number">Diff</th>
             <th class="text-right p-2" data-sort-method="number">Value</th>
+            <th class="text-right p-2" data-sort-method="number">Value New</th>
             <th class="text-left p-2" data-sort-method="string">Najlepszy bukmacher</th>
             <!-- bukmacherzy dopisze JS -->
             <th class="text-center p-2" data-sort-method="none">Usuń</th>
@@ -303,7 +304,7 @@
         // W thead mamy: 7 stałych, potem dynamiczne bk, potem "Usuń".
         // Czyli dynamiczne są między indeksem 7 a (len-2).
         // Najprościej: usuń wszystko między stałymi a ostatnią kolumną.
-        while (headRow.cells.length > 8) headRow.deleteCell(7);
+        while (headRow.cells.length > 9) headRow.deleteCell(8);
 
         // wstaw nagłówki bukmacherów PRZED ostatnią kolumną ("Usuń")
         const deleteTh = headRow.lastElementChild;
@@ -359,13 +360,19 @@
           tdVal.dataset.value = Number.isFinite(row.value) ? String(row.value) : "";
           tdVal.textContent = fmt2(row.value);
 
+          const tdValNew = document.createElement("td");
+          tdValNew.className = "text-right p-2";
+          tdValNew.dataset.col = "value_new";
+          tdValNew.dataset.value = Number.isFinite(row.value_new) ? String(row.value_new) : "";
+          tdValNew.textContent = fmt2(row.value_new);
+
           const tdBest = document.createElement("td");
           tdBest.className = "p-2";
           tdBest.dataset.col = "best_bk";
           tdBest.textContent = row.best_bk ?? "";
 
           // stałe kolumny
-          tr.append(tdMatch, tdMarket, tdDesc, tdBestOdds, tdDiff, tdVal, tdBest);
+          tr.append(tdMatch, tdMarket, tdDesc, tdBestOdds, tdDiff, tdVal, tdValNew, tdBest);
 
           // kolumny bukmacherów
           for (const bk of bookmakers) {
