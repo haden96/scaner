@@ -304,7 +304,7 @@
         // W thead mamy: 7 stałych, potem dynamiczne bk, potem "Usuń".
         // Czyli dynamiczne są między indeksem 7 a (len-2).
         // Najprościej: usuń wszystko między stałymi a ostatnią kolumną.
-        while (headRow.cells.length > 9) headRow.deleteCell(8);
+        while (headRow.cells.length > 10) headRow.deleteCell(9);
 
         // wstaw nagłówki bukmacherów PRZED ostatnią kolumną ("Usuń")
         const deleteTh = headRow.lastElementChild;
