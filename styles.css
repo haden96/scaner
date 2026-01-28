@@ -1,0 +1,75 @@
+    #bettingTable {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background-color: #e5e7eb;
+    }
+
+    body.dark thead th {
+      background-color: #020617;
+    }
+
+    tr.highlight {
+      background-color: #ecfff3;
+    }
+
+    /* PODŚWIETLENIE VALUE (6. kolumna stała) */
+    table tr>*:nth-child(6) {
+      background-color: #e0f2fe;
+      color: #1e3a8a;
+    }
+
+    body.dark {
+      background-color: #0f172a;
+      color: #e5e7eb;
+    }
+
+    body.dark .bg-white {
+      background-color: #020617;
+    }
+
+    body.dark .bg-gray-100 {
+      background-color: #0f172a;
+    }
+
+    body.dark .bg-gray-200 {
+      background-color: #020617;
+    }
+
+    body.dark th,
+    body.dark td {
+      border-color: #1e293b;
+    }
+
+    body.dark input,
+    body.dark select {
+      background-color: #020617;
+      color: #e5e7eb;
+      border-color: #334155;
+    }
+
+    body.dark button {
+      background-color: #1e293b;
+      color: #e5e7eb;
+    }
+
+    /* VALUE w dark mode */
+    body.dark table tr>*:nth-child(6) {
+      background-color: #082f49;
+      color: #7dd3fc;
+    }
+
+    .btn-del {
+      background: transparent;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.375rem;
+    }
+
+    .btn-del:hover {
+      background: rgba(239, 68, 68, 0.12);
+    }
