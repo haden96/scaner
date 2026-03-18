@@ -271,11 +271,41 @@ select:focus {
   border-bottom: 1px solid #e3eaf4;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .table-toolbar .group-title {
   margin: 0;
+}
+
+.tab-switch {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid #cfd9e8;
+  background: #f3f6fb;
+  color: #1f3355;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.tab-btn.tab-active {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+}
+
+.tab-pane.is-hidden {
+  display: none;
 }
 
 .table-wrap {
@@ -290,7 +320,27 @@ select:focus {
   font-size: 0.84rem;
 }
 
+#surebetTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.84rem;
+}
+
 #bettingTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--table-head);
+  color: #223250;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  border-bottom: 1px solid #cfd9e8;
+}
+
+#surebetTable thead th {
   position: sticky;
   top: 0;
   z-index: 3;
@@ -332,7 +382,18 @@ select:focus {
   vertical-align: middle;
 }
 
+#surebetTable th,
+#surebetTable td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e7edf6;
+  vertical-align: middle;
+}
+
 #bettingTable tbody tr {
+  background: var(--table-row);
+}
+
+#surebetTable tbody tr {
   background: var(--table-row);
 }
 
@@ -340,8 +401,45 @@ select:focus {
   background: var(--table-row-alt);
 }
 
+#surebetTable tbody tr:nth-child(even) {
+  background: var(--table-row-alt);
+}
+
 #bettingTable tbody tr:hover {
   background: var(--table-hover);
+}
+
+#surebetTable tbody tr:hover {
+  background: var(--table-hover);
+}
+
+.sb-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.74rem;
+  background: #e7f7ee;
+  color: #176b3a;
+  border: 1px solid #bfe9cf;
+}
+
+.sb-leg {
+  display: grid;
+  gap: 2px;
+  font-size: 0.82rem;
+}
+
+.sb-leg .sb-bk {
+  font-weight: 700;
+}
+
+.sb-leg .sb-odds {
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 /* Value (6 kolumna stała) */
@@ -410,13 +508,39 @@ body.dark #bettingTable thead th {
   border-bottom-color: #2a4166;
 }
 
+body.dark #surebetTable thead th {
+  border-bottom-color: #2a4166;
+}
+
 body.dark #bettingTable th,
 body.dark #bettingTable td {
   border-bottom-color: #213959;
 }
 
+body.dark #surebetTable th,
+body.dark #surebetTable td {
+  border-bottom-color: #213959;
+}
+
 body.dark .table-toolbar {
   border-bottom-color: #2a4166;
+}
+
+body.dark .tab-btn {
+  background: #172a47;
+  color: #cfe1ff;
+  border-color: #2b4268;
+}
+
+body.dark .tab-btn.tab-active {
+  background: #2b5dbd;
+  color: #fff;
+}
+
+body.dark .sb-pill {
+  background: #153726;
+  color: #bff3d3;
+  border-color: #21583d;
 }
 
 
@@ -470,5 +594,9 @@ body.dark .btn:disabled {
 
   .table-toolbar {
     align-items: flex-start;
+  }
+
+  .tab-switch {
+    width: 100%;
   }
 }

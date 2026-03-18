@@ -12,6 +12,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnReset = document.getElementById('btnReset');
     const searchBox = document.getElementById('searchBox');
     const rowCount = document.getElementById('rowCount');
+    const surebetBody = document.getElementById('surebetBody');
+    const tabAll = document.getElementById('tabAll');
+    const tabSurebets = document.getElementById('tabSurebets');
+    const tabPaneAll = document.getElementById('tabPaneAll');
+    const tabPaneSurebets = document.getElementById('tabPaneSurebets');
 
     // NOWE: minimalna liczba bukmacherów
     const minBookmakersEl = document.getElementById('minBookmakers');
@@ -41,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentSort = { key: null, dir: 'asc', type: 'string' };
 
     const fmt2 = (x) => Number.isFinite(x) ? x.toFixed(2) : '';
+    const fmtPct = (x) => Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : '';
 
     function debounce(fn, wait = 200) {
         let t = null;
@@ -391,6 +397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tr.remove();
                 updateBKHint();
                 applyFilter();
+                if (currentData) renderSurebetTable(currentData.rows ?? []);
             });
 
             tdDelete.appendChild(btnDel);
@@ -402,6 +409,113 @@ document.addEventListener('DOMContentLoaded', async () => {
         tbody.textContent = "";
         tbody.appendChild(frag);
         setupSortHeaders();
+    }
+
+    function renderSurebetTable(rows) {
+        if (!surebetBody) return;
+        const byId = new Map();
+
+        for (const row of rows) {
+            const rid = String(row.id ?? "");
+            if (!rid) continue;
+            if (deletedRows.has(rid)) continue;
+            const sbId = (row.surebet_id ?? "").toString().trim();
+            if (!sbId) continue;
+            if (!byId.has(sbId)) {
+                byId.set(sbId, []);
+            }
+            byId.get(sbId).push(row);
+        }
+
+        const groups = [];
+        for (const [id, groupRows] of byId.entries()) {
+            const maxVal = groupRows.reduce((acc, r) => {
+                const v = Number.isFinite(r.surebet_value) ? r.surebet_value : NaN;
+                if (!Number.isFinite(v)) return acc;
+                return Number.isFinite(acc) ? Math.max(acc, v) : v;
+            }, NaN);
+            groups.push({
+                id,
+                rows: groupRows,
+                value: maxVal,
+                match: (groupRows[0]?.match ?? "").toString(),
+                market: (groupRows[0]?.market ?? "").toString(),
+            });
+        }
+
+        groups.sort((a, b) => {
+            const av = Number.isFinite(a.value) ? a.value : -Infinity;
+            const bv = Number.isFinite(b.value) ? b.value : -Infinity;
+            return bv - av;
+        });
+
+        const frag = document.createDocumentFragment();
+        for (const group of groups) {
+            const tr = document.createElement("tr");
+
+            const tdVal = document.createElement("td");
+            tdVal.className = "text-right p-2";
+            const pill = document.createElement("span");
+            pill.className = "sb-pill";
+            pill.textContent = Number.isFinite(group.value) ? fmtPct(group.value) : "—";
+            tdVal.appendChild(pill);
+
+            const tdMatch = document.createElement("td");
+            tdMatch.className = "p-2";
+            tdMatch.textContent = group.match;
+
+            const tdMarket = document.createElement("td");
+            tdMarket.className = "p-2";
+            tdMarket.textContent = group.market;
+
+            const [legA, legB] = group.rows;
+            const tdLegA = document.createElement("td");
+            tdLegA.className = "p-2";
+            tdLegA.appendChild(renderSurebetLeg(legA));
+
+            const tdLegB = document.createElement("td");
+            tdLegB.className = "p-2";
+            tdLegB.appendChild(renderSurebetLeg(legB));
+
+            tr.append(tdVal, tdMatch, tdMarket, tdLegA, tdLegB);
+            frag.appendChild(tr);
+        }
+
+        surebetBody.textContent = "";
+        surebetBody.appendChild(frag);
+    }
+
+    function renderSurebetLeg(row) {
+        const wrap = document.createElement("div");
+        wrap.className = "sb-leg";
+        if (!row) {
+            wrap.textContent = "—";
+            return wrap;
+        }
+
+        const desc = document.createElement("div");
+        desc.textContent = (row.description ?? "").toString();
+
+        const bk = document.createElement("div");
+        bk.className = "sb-bk";
+        bk.textContent = (row.best_bk ?? "").toString();
+
+        const odds = document.createElement("div");
+        odds.className = "sb-odds";
+        const o = Number.isFinite(row.best_odds) ? row.best_odds.toFixed(2) : "—";
+        odds.textContent = `Odds: ${o}`;
+
+        wrap.append(desc, bk, odds);
+        return wrap;
+    }
+
+    function setActiveTab(tab) {
+        if (!tabAll || !tabSurebets || !tabPaneAll || !tabPaneSurebets) return;
+        const isSurebets = tab === "surebets";
+        tabAll.classList.toggle("tab-active", !isSurebets);
+        tabSurebets.classList.toggle("tab-active", isSurebets);
+        tabPaneAll.classList.toggle("is-hidden", isSurebets);
+        tabPaneSurebets.classList.toggle("is-hidden", !isSurebets);
     }
 
     function applyFilter() {
@@ -453,6 +567,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function fullRerender() {
         if (!currentData) return;
         renderTable(currentData);
+        renderSurebetTable(currentData.rows ?? []);
         applyFilter();
         updateBKHint();
         updateMarketHint();
@@ -495,6 +610,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderBookmakerCheckboxes(allBookmakers);
         renderMarketCheckboxes(allMarkets);
         renderTable(data);
+        renderSurebetTable(data.rows ?? []);
 
         applyFilter();
         updateBKHint();
@@ -575,6 +691,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateMarketHint();
         applyFilter();
     });
+
+    if (tabAll && tabSurebets) {
+        tabAll.addEventListener("click", () => setActiveTab("all"));
+        tabSurebets.addEventListener("click", () => setActiveTab("surebets"));
+    }
 
     const darkToggle = document.getElementById('darkToggle');
     if (localStorage.getItem('darkMode') === '1') {

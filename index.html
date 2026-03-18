@@ -108,23 +108,45 @@
     <section class="panel table-panel">
       <div class="table-toolbar">
         <p class="group-title">Tabela kursów</p>
+        <div class="tab-switch">
+          <button id="tabAll" class="tab-btn tab-active" type="button">Wszystkie</button>
+          <button id="tabSurebets" class="tab-btn" type="button">Surebety</button>
+        </div>
       </div>
-      <div class="table-wrap">
-        <table class="table-auto w-full" id="bettingTable" aria-describedby="rowCount">
-          <thead>
-            <tr id="tableHeadRow">
-              <th class="text-left p-2" data-sort-key="match" data-sort-type="string">Mecz</th>
-              <th class="text-left p-2" data-sort-key="market" data-sort-type="string">Rynek</th>
-              <th class="text-left p-2" data-sort-key="description" data-sort-type="string">Opis</th>
-              <th class="text-right p-2" data-sort-key="odds" data-sort-type="number">Odds</th>
-              <th class="text-right p-2" data-sort-key="diff" data-sort-type="number">Diff</th>
-              <th class="text-right p-2" data-sort-key="value" data-sort-type="number">Value</th>
-              <th class="text-left p-2" data-sort-key="best_bk" data-sort-type="string">best</th>
-              <th class="text-center p-2">Usuń</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
+      <div id="tabPaneAll" class="tab-pane">
+        <div class="table-wrap">
+          <table class="table-auto w-full" id="bettingTable" aria-describedby="rowCount">
+            <thead>
+              <tr id="tableHeadRow">
+                <th class="text-left p-2" data-sort-key="match" data-sort-type="string">Mecz</th>
+                <th class="text-left p-2" data-sort-key="market" data-sort-type="string">Rynek</th>
+                <th class="text-left p-2" data-sort-key="description" data-sort-type="string">Opis</th>
+                <th class="text-right p-2" data-sort-key="odds" data-sort-type="number">Odds</th>
+                <th class="text-right p-2" data-sort-key="diff" data-sort-type="number">Diff</th>
+                <th class="text-right p-2" data-sort-key="value" data-sort-type="number">Value</th>
+                <th class="text-left p-2" data-sort-key="best_bk" data-sort-type="string">best</th>
+                <th class="text-center p-2">Usuń</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="tabPaneSurebets" class="tab-pane is-hidden">
+        <div class="table-wrap">
+          <table class="table-auto w-full" id="surebetTable">
+            <thead>
+              <tr>
+                <th class="text-right p-2">Surebet %</th>
+                <th class="text-left p-2">Mecz</th>
+                <th class="text-left p-2">Rynek</th>
+                <th class="text-left p-2">Zakład A</th>
+                <th class="text-left p-2">Zakład B</th>
+              </tr>
+            </thead>
+            <tbody id="surebetBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>
