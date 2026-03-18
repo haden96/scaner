@@ -450,6 +450,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const frag = document.createDocumentFragment();
+        if (tabSurebets) {
+            tabSurebets.textContent = `Surebety (${groups.length})`;
+        }
+
         if (groups.length === 0) {
             const tr = document.createElement("tr");
             const td = document.createElement("td");
