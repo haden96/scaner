@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupSortHeaders();
     }
 
-    function renderSurebetTable(rows) {
+    function renderSurebetTable(rows, bookmakers = []) {
         if (!surebetBody) return;
         const byId = new Map();
 
@@ -487,11 +487,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const [legA, legB] = group.rows;
             const tdLegA = document.createElement("td");
             tdLegA.className = "p-2";
-            tdLegA.appendChild(renderSurebetLeg(legA));
+            tdLegA.appendChild(renderSurebetLeg(legA, bookmakers));
 
             const tdLegB = document.createElement("td");
             tdLegB.className = "p-2";
-            tdLegB.appendChild(renderSurebetLeg(legB));
+            tdLegB.appendChild(renderSurebetLeg(legB, bookmakers));
 
             tr.append(tdVal, tdMatch, tdMarket, tdLegA, tdLegB);
             frag.appendChild(tr);
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         surebetBody.appendChild(frag);
     }
 
-    function renderSurebetLeg(row) {
+    function renderSurebetLeg(row, bookmakers = []) {
         const wrap = document.createElement("div");
         wrap.className = "sb-leg";
         if (!row) {
@@ -519,9 +519,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         const odds = document.createElement("div");
         odds.className = "sb-odds";
         const o = Number.isFinite(row.best_odds) ? row.best_odds.toFixed(2) : "—";
-        odds.textContent = `Odds: ${o}`;
+        odds.textContent = `Best: ${o}`;
 
-        wrap.append(desc, bk, odds);
+        const oddsList = document.createElement("div");
+        oddsList.className = "sb-odds-list";
+
+        const allOdds = row.odds ?? {};
+        const list = (bookmakers.length ? bookmakers : Object.keys(allOdds)).filter((bkName) => {
+            return Number.isFinite(allOdds?.[bkName]);
+        });
+
+        if (list.length === 0) {
+            const empty = document.createElement("span");
+            empty.className = "sb-odds-item";
+            empty.textContent = "Brak kursów";
+            oddsList.appendChild(empty);
+        } else {
+            for (const bkName of list) {
+                const v = allOdds[bkName];
+                const item = document.createElement("span");
+                item.className = "sb-odds-item";
+                item.textContent = `${bkName}: ${Number.isFinite(v) ? v.toFixed(2) : "—"}`;
+                oddsList.appendChild(item);
+            }
+        }
+
+        wrap.append(desc, bk, odds, oddsList);
         return wrap;
     }
 
@@ -585,7 +608,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function fullRerender() {
         if (!currentData) return;
         renderTable(currentData);
-        renderSurebetTable(currentData.rows ?? []);
+        renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
         applyFilter();
         updateBKHint();
         updateMarketHint();
@@ -628,7 +651,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderBookmakerCheckboxes(allBookmakers);
         renderMarketCheckboxes(allMarkets);
         renderTable(data);
-        renderSurebetTable(data.rows ?? []);
+        renderSurebetTable(data.rows ?? [], data.bookmakers ?? []);
 
         applyFilter();
         updateBKHint();

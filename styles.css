@@ -446,6 +446,23 @@ select:focus {
   font-size: 0.76rem;
 }
 
+.sb-odds-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 4px;
+}
+
+.sb-odds-item {
+  background: #f1f5fb;
+  border: 1px solid #d9e3f2;
+  color: #223250;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 /* Value (6 kolumna stała) */
 #bettingTable tr > *:nth-child(6) {
   background-color: var(--value-col-bg);
@@ -545,6 +562,12 @@ body.dark .sb-pill {
   background: #153726;
   color: #bff3d3;
   border-color: #21583d;
+}
+
+body.dark .sb-odds-item {
+  background: #162844;
+  border-color: #2b4268;
+  color: #cfe1ff;
 }
 
 
