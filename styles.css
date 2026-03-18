@@ -273,21 +273,24 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .table-toolbar .group-title {
   margin: 0;
+  margin-right: auto;
 }
 
 .tab-switch {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .tab-btn {
-  border: 1px solid #cfd9e8;
-  background: #f3f6fb;
+  border: 1px solid #d3deec;
+  background: var(--secondary);
   color: #1f3355;
   border-radius: 999px;
   padding: 6px 12px;
@@ -296,6 +299,7 @@ select:focus {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   cursor: pointer;
+  box-shadow: 0 6px 14px rgba(15, 43, 85, 0.08);
 }
 
 .tab-btn.tab-active {
@@ -527,7 +531,7 @@ body.dark .table-toolbar {
 }
 
 body.dark .tab-btn {
-  background: #172a47;
+  background: #192a45;
   color: #cfe1ff;
   border-color: #2b4268;
 }

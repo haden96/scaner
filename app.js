@@ -450,6 +450,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const frag = document.createDocumentFragment();
+        if (groups.length === 0) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.className = "p-3 text-gray-600";
+            td.colSpan = 5;
+            td.textContent = "Brak surebetów w danych.";
+            tr.appendChild(td);
+            frag.appendChild(tr);
+            surebetBody.textContent = "";
+            surebetBody.appendChild(frag);
+            return;
+        }
         for (const group of groups) {
             const tr = document.createElement("tr");
 
@@ -514,6 +526,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isSurebets = tab === "surebets";
         tabAll.classList.toggle("tab-active", !isSurebets);
         tabSurebets.classList.toggle("tab-active", isSurebets);
+        tabAll.setAttribute("aria-pressed", (!isSurebets).toString());
+        tabSurebets.setAttribute("aria-pressed", isSurebets.toString());
         tabPaneAll.classList.toggle("is-hidden", isSurebets);
         tabPaneSurebets.classList.toggle("is-hidden", !isSurebets);
     }
@@ -693,6 +707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (tabAll && tabSurebets) {
+        setActiveTab("all");
         tabAll.addEventListener("click", () => setActiveTab("all"));
         tabSurebets.addEventListener("click", () => setActiveTab("surebets"));
     }
