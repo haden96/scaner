@@ -13,10 +13,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchBox = document.getElementById('searchBox');
     const rowCount = document.getElementById('rowCount');
     const surebetBody = document.getElementById('surebetBody');
+    const middlebetBody = document.getElementById('middlebetBody');
     const tabAll = document.getElementById('tabAll');
     const tabSurebets = document.getElementById('tabSurebets');
+    const tabMiddlebets = document.getElementById('tabMiddlebets');
     const tabPaneAll = document.getElementById('tabPaneAll');
     const tabPaneSurebets = document.getElementById('tabPaneSurebets');
+    const tabPaneMiddlebets = document.getElementById('tabPaneMiddlebets');
 
     // NOWE: minimalna liczba bukmacherów
     const minBookmakersEl = document.getElementById('minBookmakers');
@@ -564,15 +567,114 @@ document.addEventListener('DOMContentLoaded', async () => {
         return wrap;
     }
 
+    function renderMiddlebetTable(middlebets = []) {
+        if (!middlebetBody) return;
+        const list = Array.isArray(middlebets) ? middlebets : [];
+        const sorted = [...list].sort((a, b) => {
+            const av = Number.isFinite(a?.roi_mid) ? a.roi_mid : -Infinity;
+            const bv = Number.isFinite(b?.roi_mid) ? b.roi_mid : -Infinity;
+            return bv - av;
+        });
+
+        const frag = document.createDocumentFragment();
+        if (tabMiddlebets) {
+            tabMiddlebets.textContent = `Middlebety (${sorted.length})`;
+        }
+
+        if (sorted.length === 0) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.className = "p-3 text-gray-600";
+            td.colSpan = 5;
+            td.textContent = "Brak middlebetów w danych.";
+            tr.appendChild(td);
+            frag.appendChild(tr);
+            middlebetBody.textContent = "";
+            middlebetBody.appendChild(frag);
+            return;
+        }
+
+        for (const row of sorted) {
+            const tr = document.createElement("tr");
+
+            const tdVal = document.createElement("td");
+            tdVal.className = "text-right p-2";
+            const pill = document.createElement("span");
+            pill.className = "sb-pill";
+            pill.textContent = Number.isFinite(row.roi_mid) ? fmtPct(row.roi_mid) : "—";
+            tdVal.appendChild(pill);
+            if (Number.isFinite(row.roi_min)) {
+                const sub = document.createElement("div");
+                sub.className = "sb-sub";
+                sub.textContent = `min: ${fmtPct(row.roi_min)}`;
+                tdVal.appendChild(sub);
+            }
+
+            const tdMatch = document.createElement("td");
+            tdMatch.className = "p-2";
+            tdMatch.textContent = (row.match ?? "").toString();
+
+            const tdMarket = document.createElement("td");
+            tdMarket.className = "p-2";
+            tdMarket.textContent = (row.market ?? "").toString();
+
+            const tdOver = document.createElement("td");
+            tdOver.className = "p-2";
+            tdOver.appendChild(renderMiddlebetLeg(row, "over"));
+
+            const tdUnder = document.createElement("td");
+            tdUnder.className = "p-2";
+            tdUnder.appendChild(renderMiddlebetLeg(row, "under"));
+
+            tr.append(tdVal, tdMatch, tdMarket, tdOver, tdUnder);
+            frag.appendChild(tr);
+        }
+
+        middlebetBody.textContent = "";
+        middlebetBody.appendChild(frag);
+    }
+
+    function renderMiddlebetLeg(row, side) {
+        const wrap = document.createElement("div");
+        wrap.className = "sb-leg";
+        if (!row) {
+            wrap.textContent = "—";
+            return wrap;
+        }
+
+        const desc = document.createElement("div");
+        desc.textContent = side === "over" ? (row.over ?? "").toString() : (row.under ?? "").toString();
+
+        const bk = document.createElement("div");
+        bk.className = "sb-bk";
+        bk.textContent = side === "over" ? (row.best_over_bk ?? "").toString() : (row.best_under_bk ?? "").toString();
+
+        const odds = document.createElement("div");
+        odds.className = "sb-odds";
+        const o = side === "over" ? row.over_odds : row.under_odds;
+        odds.textContent = `Best: ${Number.isFinite(o) ? o.toFixed(2) : "—"}`;
+
+        wrap.append(desc, bk, odds);
+        return wrap;
+    }
+
     function setActiveTab(tab) {
-        if (!tabAll || !tabSurebets || !tabPaneAll || !tabPaneSurebets) return;
+        if (!tabAll || !tabSurebets || !tabMiddlebets || !tabPaneAll || !tabPaneSurebets || !tabPaneMiddlebets) return;
         const isSurebets = tab === "surebets";
-        tabAll.classList.toggle("tab-active", !isSurebets);
+        const isMiddle = tab === "middlebets";
+        const isAll = !isSurebets && !isMiddle;
+
+        tabAll.classList.toggle("tab-active", isAll);
         tabSurebets.classList.toggle("tab-active", isSurebets);
-        tabAll.setAttribute("aria-pressed", (!isSurebets).toString());
+        tabMiddlebets.classList.toggle("tab-active", isMiddle);
+
+        tabAll.setAttribute("aria-pressed", isAll.toString());
         tabSurebets.setAttribute("aria-pressed", isSurebets.toString());
-        tabPaneAll.classList.toggle("is-hidden", isSurebets);
+        tabMiddlebets.setAttribute("aria-pressed", isMiddle.toString());
+
+        tabPaneAll.classList.toggle("is-hidden", !isAll);
         tabPaneSurebets.classList.toggle("is-hidden", !isSurebets);
+        tabPaneMiddlebets.classList.toggle("is-hidden", !isMiddle);
     }
 
     function applyFilter() {
@@ -625,6 +727,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!currentData) return;
         renderTable(currentData);
         renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
+        renderMiddlebetTable(currentData.middlebets ?? []);
         applyFilter();
         updateBKHint();
         updateMarketHint();
@@ -668,6 +771,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderMarketCheckboxes(allMarkets);
         renderTable(data);
         renderSurebetTable(data.rows ?? [], data.bookmakers ?? []);
+        renderMiddlebetTable(data.middlebets ?? []);
 
         applyFilter();
         updateBKHint();
@@ -753,6 +857,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         setActiveTab("all");
         tabAll.addEventListener("click", () => setActiveTab("all"));
         tabSurebets.addEventListener("click", () => setActiveTab("surebets"));
+        if (tabMiddlebets) {
+            tabMiddlebets.addEventListener("click", () => setActiveTab("middlebets"));
+        }
     }
 
     const darkToggle = document.getElementById('darkToggle');

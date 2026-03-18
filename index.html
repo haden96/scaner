@@ -111,6 +111,7 @@
         <div class="tab-switch">
           <button id="tabAll" class="tab-btn tab-active" type="button">Wszystkie</button>
           <button id="tabSurebets" class="tab-btn" type="button">Surebety</button>
+          <button id="tabMiddlebets" class="tab-btn" type="button">Middlebety</button>
         </div>
       </div>
       <div id="tabPaneAll" class="tab-pane">
@@ -145,6 +146,22 @@
               </tr>
             </thead>
             <tbody id="surebetBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="tabPaneMiddlebets" class="tab-pane is-hidden">
+        <div class="table-wrap">
+          <table class="table-auto w-full" id="middlebetTable">
+            <thead>
+              <tr>
+                <th class="text-right p-2">Middlebet %</th>
+                <th class="text-left p-2">Mecz</th>
+                <th class="text-left p-2">Rynek</th>
+                <th class="text-left p-2">Over</th>
+                <th class="text-left p-2">Under</th>
+              </tr>
+            </thead>
+            <tbody id="middlebetBody"></tbody>
           </table>
         </div>
       </div>
