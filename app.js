@@ -440,6 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 value: maxVal,
                 match: (groupRows[0]?.match ?? "").toString(),
                 market: (groupRows[0]?.market ?? "").toString(),
+                type: (groupRows[0]?.surebet_type ?? "surebet").toString(),
             });
         }
 
@@ -475,6 +476,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             pill.className = "sb-pill";
             pill.textContent = Number.isFinite(group.value) ? fmtPct(group.value) : "—";
             tdVal.appendChild(pill);
+            if (group.type && group.type !== "surebet") {
+                const type = document.createElement("div");
+                type.className = "sb-type";
+                type.textContent = group.type === "middle" ? "middlebet" : group.type;
+                tdVal.appendChild(type);
+            }
 
             const tdMatch = document.createElement("td");
             tdMatch.className = "p-2";
@@ -537,9 +544,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             for (const bkName of list) {
                 const v = allOdds[bkName];
-                const item = document.createElement("span");
+                const item = document.createElement("div");
                 item.className = "sb-odds-item";
-                item.textContent = `${bkName}: ${Number.isFinite(v) ? v.toFixed(2) : "—"}`;
+                if ((row.best_bk ?? "").toString() === bkName) {
+                    item.classList.add("is-best");
+                }
+                const name = document.createElement("span");
+                name.className = "sb-odds-name";
+                name.textContent = bkName;
+                const val = document.createElement("span");
+                val.className = "sb-odds-val";
+                val.textContent = Number.isFinite(v) ? v.toFixed(2) : "—";
+                item.append(name, val);
                 oddsList.appendChild(item);
             }
         }

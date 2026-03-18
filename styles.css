@@ -458,20 +458,47 @@ select:focus {
 
 .sb-odds-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 6px 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
   margin-top: 6px;
 }
 
 .sb-odds-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   background: #f6f8fc;
   border: 1px solid #dde5f2;
   color: #223250;
   border-radius: 8px;
   padding: 4px 8px;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 600;
+}
+
+.sb-odds-item.is-best {
+  border-color: #8fd0a8;
+  background: #e9f7ef;
+  color: #0f5a2f;
+}
+
+.sb-odds-name {
   white-space: nowrap;
+}
+
+.sb-odds-val {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #1e2a44;
+}
+
+.sb-type {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
 }
 
 /* Value (6 kolumna stała) */
@@ -579,6 +606,12 @@ body.dark .sb-odds-item {
   background: #162844;
   border-color: #2b4268;
   color: #cfe1ff;
+}
+
+body.dark .sb-odds-item.is-best {
+  background: #1f3b2e;
+  border-color: #2d6b4c;
+  color: #bff3d3;
 }
 
 
