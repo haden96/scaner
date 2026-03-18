@@ -401,9 +401,8 @@ select:focus {
   vertical-align: top;
 }
 
-#surebetTable td:nth-child(4),
-#surebetTable td:nth-child(5) {
-  min-width: 280px;
+#surebetTable td:nth-child(4) {
+  min-width: 560px;
 }
 
 #bettingTable tbody tr {
@@ -447,10 +446,23 @@ select:focus {
   border: 1px solid #bfe9cf;
 }
 
-.sb-sub {
+
+.sb-period {
   margin-top: 4px;
-  font-size: 0.7rem;
   color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sb-legs {
+  display: grid;
+  gap: 10px;
+}
+
+.sb-legs-2,
+.sb-legs-3 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .sb-leg {
@@ -686,4 +698,15 @@ body.dark .btn:disabled {
   .tab-switch {
     width: 100%;
   }
+}
+.sb-sub {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.sb-under {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }

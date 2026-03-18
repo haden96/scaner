@@ -158,6 +158,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return key;
     }
 
+    function sourceMarketsLabel(row) {
+        const arr = Array.isArray(row?.source_markets) ? row.source_markets.filter(Boolean) : [];
+        if (arr.length <= 1) return "";
+        return ` [src: ${arr.join(" | ")}]`;
+    }
+
     function loadSelectedBestBK(defaultList) {
         try {
             const raw = localStorage.getItem(LS_KEY);
@@ -314,7 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tdMarket = document.createElement("td");
             tdMarket.className = "p-2";
             tdMarket.dataset.col = "market";
-            tdMarket.textContent = row.market;
+            tdMarket.textContent = `${row.market ?? ""}${sourceMarketsLabel(row)}`;
 
             const tdDesc = document.createElement("td");
             tdDesc.className = "p-2";
@@ -422,6 +428,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const rid = String(row.id ?? "");
             if (!rid) continue;
             if (deletedRows.has(rid)) continue;
+            if ((row.surebet_type ?? "").toString() === "middle") continue;
             const sbId = (row.surebet_id ?? "").toString().trim();
             if (!sbId) continue;
             if (!byId.has(sbId)) {
@@ -430,19 +437,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             byId.get(sbId).push(row);
         }
 
+        const legSortWeight = (row) => {
+            const desc = (row?.description ?? "").toString().trim().toLowerCase();
+            const prefix = desc.split(/\s+/, 1)[0];
+            const weights = {
+                home: 0,
+                "1": 0,
+                draw: 1,
+                x: 1,
+                away: 2,
+                "2": 2,
+                over: 3,
+                under: 4,
+            };
+            return [weights[prefix] ?? 99, desc];
+        };
+
         const groups = [];
-        for (const [id, groupRows] of byId.entries()) {
+        for (const [id, groupRowsRaw] of byId.entries()) {
+            const groupRows = [...groupRowsRaw].sort((a, b) => {
+                const [aw, ad] = legSortWeight(a);
+                const [bw, bd] = legSortWeight(b);
+                if (aw !== bw) return aw - bw;
+                return ad.localeCompare(bd, 'pl');
+            });
+            if (groupRows.length < 2) continue;
+
             const maxVal = groupRows.reduce((acc, r) => {
                 const v = Number.isFinite(r.surebet_value) ? r.surebet_value : NaN;
                 if (!Number.isFinite(v)) return acc;
                 return Number.isFinite(acc) ? Math.max(acc, v) : v;
             }, NaN);
+
             groups.push({
                 id,
                 rows: groupRows,
                 value: maxVal,
                 match: (groupRows[0]?.match ?? "").toString(),
                 market: (groupRows[0]?.market ?? "").toString(),
+                period: (groupRows[0]?.period ?? "").toString(),
                 type: (groupRows[0]?.surebet_type ?? "surebet").toString(),
             });
         }
@@ -470,6 +503,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             surebetBody.appendChild(frag);
             return;
         }
+
         for (const group of groups) {
             const tr = document.createElement("tr");
 
@@ -479,12 +513,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             pill.className = "sb-pill";
             pill.textContent = Number.isFinite(group.value) ? fmtPct(group.value) : "—";
             tdVal.appendChild(pill);
-            if (group.type && group.type !== "surebet") {
-                const type = document.createElement("div");
-                type.className = "sb-type";
-                type.textContent = group.type === "middle" ? "middlebet" : group.type;
-                tdVal.appendChild(type);
-            }
 
             const tdMatch = document.createElement("td");
             tdMatch.className = "p-2";
@@ -492,18 +520,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const tdMarket = document.createElement("td");
             tdMarket.className = "p-2";
-            tdMarket.textContent = group.market;
+            const marketName = document.createElement("div");
+            marketName.textContent = group.market;
+            tdMarket.appendChild(marketName);
+            if (group.period) {
+                const period = document.createElement("div");
+                period.className = "sb-period";
+                period.textContent = group.period;
+                tdMarket.appendChild(period);
+            }
 
-            const [legA, legB] = group.rows;
-            const tdLegA = document.createElement("td");
-            tdLegA.className = "p-2";
-            tdLegA.appendChild(renderSurebetLeg(legA, bookmakers));
+            const tdLegs = document.createElement("td");
+            tdLegs.className = "p-2";
+            tdLegs.colSpan = 2;
 
-            const tdLegB = document.createElement("td");
-            tdLegB.className = "p-2";
-            tdLegB.appendChild(renderSurebetLeg(legB, bookmakers));
+            const legsWrap = document.createElement("div");
+            legsWrap.className = `sb-legs sb-legs-${Math.min(group.rows.length, 3)}`;
+            for (const leg of group.rows) {
+                legsWrap.appendChild(renderSurebetLeg(leg, bookmakers));
+            }
+            tdLegs.appendChild(legsWrap);
 
-            tr.append(tdVal, tdMatch, tdMarket, tdLegA, tdLegB);
+            tr.append(tdVal, tdMatch, tdMarket, tdLegs);
             frag.appendChild(tr);
         }
 
@@ -529,7 +567,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const odds = document.createElement("div");
         odds.className = "sb-odds";
         const o = Number.isFinite(row.best_odds) ? row.best_odds.toFixed(2) : "—";
-        odds.textContent = `Best: ${o}`;
+        const bkName = (row.best_bk ?? "").toString();
+        odds.textContent = `Best: ${bkName} ${o}`.trim();
 
         const oddsList = document.createElement("div");
         oddsList.className = "sb-odds-list";
@@ -566,6 +605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         wrap.append(desc, bk, odds, oddsList);
         return wrap;
     }
+
 
     function renderMiddlebetTable(middlebets = []) {
         if (!middlebetBody) return;
@@ -605,7 +645,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             tdVal.appendChild(pill);
             if (Number.isFinite(row.roi_min)) {
                 const sub = document.createElement("div");
-                sub.className = "sb-sub";
+                sub.className = "sb-sub sb-under";
                 sub.textContent = `min: ${fmtPct(row.roi_min)}`;
                 tdVal.appendChild(sub);
             }
@@ -652,9 +692,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         const odds = document.createElement("div");
         odds.className = "sb-odds";
         const o = side === "over" ? row.over_odds : row.under_odds;
-        odds.textContent = `Best: ${Number.isFinite(o) ? o.toFixed(2) : "—"}`;
+        const bkName = side === "over"
+            ? (row.best_over_bk ?? "").toString()
+            : (row.best_under_bk ?? "").toString();
+        const oTxt = Number.isFinite(o) ? o.toFixed(2) : "—";
+        odds.textContent = `Best: ${bkName} ${oTxt}`.trim();
 
-        wrap.append(desc, bk, odds);
+        const oddsList = document.createElement("div");
+        oddsList.className = "sb-odds-list";
+        const allOdds = side === "over" ? (row.over_odds_by_bk ?? {}) : (row.under_odds_by_bk ?? {});
+        const list = Object.keys(allOdds).filter((bkName) => Number.isFinite(allOdds?.[bkName]));
+
+        if (list.length === 0) {
+            const empty = document.createElement("span");
+            empty.className = "sb-odds-item";
+            empty.textContent = "Brak kursów";
+            oddsList.appendChild(empty);
+        } else {
+            for (const bkName of list) {
+                const v = allOdds[bkName];
+                const item = document.createElement("div");
+                item.className = "sb-odds-item";
+                const bestBk = side === "over" ? (row.best_over_bk ?? "").toString() : (row.best_under_bk ?? "").toString();
+                if (bestBk === bkName) item.classList.add("is-best");
+
+                const name = document.createElement("span");
+                name.className = "sb-odds-name";
+                name.textContent = bkName;
+                const val = document.createElement("span");
+                val.className = "sb-odds-val";
+                val.textContent = Number.isFinite(v) ? v.toFixed(2) : "—";
+                item.append(name, val);
+                oddsList.appendChild(item);
+            }
+        }
+
+        wrap.append(desc, bk, odds, oddsList);
         return wrap;
     }
 
