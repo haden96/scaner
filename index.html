@@ -94,15 +94,33 @@
 
     <section class="panel">
       <div class="panel-header">
-        <p class="group-title">Filtr rynków</p>
+        <p class="group-title">Filtr surebetów i middlebetów</p>
         <div class="actions-inline">
+          <button id="arbBkAll" class="btn btn-small">Zaznacz wszystko</button>
+          <button id="arbBkNone" class="btn btn-small">Odznacz wszystko</button>
+        </div>
+        <span id="arbBkHint" class="hint"></span>
+      </div>
+      <div id="arbBkList" class="chip-grid"></div>
+      <p class="helper-text">Pokazuje tylko te surebety i middlebety, w których każdy najlepszy kurs należy do jednego z wybranych bukmacherów.</p>
+    </section>
+
+    <section class="panel market-filter-panel">
+      <div class="panel-header compact-panel-header">
+        <div>
+          <p class="group-title">Filtr rynków</p>
+          <span id="marketHint" class="hint hint-inline"></span>
+        </div>
+        <div class="actions-inline compact-actions">
           <button id="marketAll" class="btn btn-small">Zaznacz wszystko</button>
           <button id="marketNone" class="btn btn-small">Odznacz wszystko</button>
+          <button id="marketToggle" class="btn btn-small btn-ghost" type="button">Filtry rynków</button>
         </div>
-        <span id="marketHint" class="hint"></span>
       </div>
-      <div id="marketList" class="chip-grid"></div>
-      <p class="helper-text">Checkboxy filtrują wiersze po kolumnie „Rynek”. Ustawienia są zapisywane w localStorage.</p>
+      <div id="marketPanelBody" class="filter-body is-collapsed">
+        <div id="marketList" class="market-groups"></div>
+        <p class="helper-text">Checkboxy filtrują wiersze po kolumnie „Rynek”. Ustawienia są zapisywane w localStorage.</p>
+      </div>
     </section>
 
     <section class="panel table-panel">
@@ -136,12 +154,18 @@
       <div id="tabPaneSurebets" class="tab-pane is-hidden">
         <div class="table-wrap">
           <table class="table-auto w-full" id="surebetTable">
+            <colgroup>
+              <col class="sb-col-pct">
+              <col class="sb-col-match">
+              <col class="sb-col-market">
+              <col class="sb-col-leg">
+            </colgroup>
             <thead>
               <tr>
                 <th class="text-right p-2">Surebet %</th>
                 <th class="text-left p-2">Mecz</th>
                 <th class="text-left p-2">Rynek</th>
-                <th class="text-left p-2" colspan="2">Wyniki</th>
+                <th class="text-left p-2">Wynik</th>
               </tr>
             </thead>
             <tbody id="surebetBody"></tbody>
@@ -168,7 +192,7 @@
   </div>
 
   
-  <script type="module" src="app.js?v=20260318"></script>
+  <script type="module" src="app.js?v=20260415"></script>
 </body>
 
 </html>

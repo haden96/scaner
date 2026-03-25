@@ -29,20 +29,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bkNone = document.getElementById('bkNone');
     const bkHint = document.getElementById('bkHint');
     const bkRestoreDeleted = document.getElementById('bkRestoreDeleted');
+    const arbBkList = document.getElementById('arbBkList');
+    const arbBkAll = document.getElementById('arbBkAll');
+    const arbBkNone = document.getElementById('arbBkNone');
+    const arbBkHint = document.getElementById('arbBkHint');
     const marketList = document.getElementById('marketList');
     const marketAll = document.getElementById('marketAll');
     const marketNone = document.getElementById('marketNone');
     const marketHint = document.getElementById('marketHint');
+    const marketToggle = document.getElementById('marketToggle');
+    const marketPanelBody = document.getElementById('marketPanelBody');
 
     const LS_KEY = "bestbk_filter_selected_v1";
+    const ARB_LS_KEY = "arb_bestbk_filter_selected_v1";
     const MARKET_LS_KEY = "market_filter_selected_v1";
+    const MARKET_PANEL_OPEN_KEY = "market_filter_panel_open_v1";
+    const MARKET_GROUPS_LS_KEY = "market_filter_groups_open_v1";
     const DELETED_KEY = "deleted_rows_v1";
 
     let allBookmakers = [];
     let allMarkets = [];
     let selectedBestBK = new Set();
+    let selectedArbBK = new Set();
     let selectedMarkets = new Set();
     let deletedRows = new Set();
+    let openMarketGroups = new Set();
 
     let currentData = null;
     let rowModels = [];
@@ -50,6 +61,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const fmt2 = (x) => Number.isFinite(x) ? x.toFixed(2) : '';
     const fmtPct = (x) => Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : '';
+
+    function getRowSurebets(row) {
+        const surebets = Array.isArray(row?.surebets) ? row.surebets : [];
+        const normalized = surebets
+            .map((item) => ({
+                surebet_id: (item?.surebet_id ?? "").toString().trim(),
+                surebet_type: (item?.surebet_type ?? "").toString().trim(),
+                surebet_value: Number.isFinite(item?.surebet_value) ? item.surebet_value : NaN,
+            }))
+            .filter((item) => item.surebet_id);
+
+        if (normalized.length > 0) {
+            return normalized;
+        }
+
+        const legacyId = (row?.surebet_id ?? "").toString().trim();
+        if (!legacyId) return [];
+        return [
+            {
+                surebet_id: legacyId,
+                surebet_type: (row?.surebet_type ?? "").toString().trim(),
+                surebet_value: Number.isFinite(row?.surebet_value) ? row.surebet_value : NaN,
+            },
+        ];
+    }
 
     function debounce(fn, wait = 200) {
         let t = null;
@@ -180,6 +216,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem(LS_KEY, JSON.stringify([...selectedBestBK]));
     }
 
+    function loadSelectedArbBK(defaultList) {
+        try {
+            const raw = localStorage.getItem(ARB_LS_KEY);
+            if (!raw) return new Set(defaultList);
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return new Set(defaultList);
+            return new Set(arr.filter(x => defaultList.includes(x)));
+        } catch {
+            return new Set(defaultList);
+        }
+    }
+
+    function saveSelectedArbBK() {
+        localStorage.setItem(ARB_LS_KEY, JSON.stringify([...selectedArbBK]));
+    }
+
     function loadSelectedMarkets(defaultList) {
         try {
             const raw = localStorage.getItem(MARKET_LS_KEY);
@@ -195,6 +247,73 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function saveSelectedMarkets() {
         localStorage.setItem(MARKET_LS_KEY, JSON.stringify([...selectedMarkets]));
+    }
+
+    function loadMarketPanelOpen() {
+        try {
+            return localStorage.getItem(MARKET_PANEL_OPEN_KEY) === "1";
+        } catch {
+            return false;
+        }
+    }
+
+    function saveMarketPanelOpen(isOpen) {
+        try {
+            localStorage.setItem(MARKET_PANEL_OPEN_KEY, isOpen ? "1" : "0");
+        } catch {
+            // ignore localStorage errors
+        }
+    }
+
+    function setMarketPanelOpen(isOpen) {
+        if (!marketPanelBody || !marketToggle) return;
+        marketPanelBody.classList.toggle('is-collapsed', !isOpen);
+        marketToggle.textContent = isOpen ? 'Ukryj filtry' : 'Filtry rynków';
+        marketToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        saveMarketPanelOpen(isOpen);
+    }
+
+    function marketGroupKey(market) {
+        const value = (market ?? '').toString().toLowerCase();
+        if (value.includes('goal') || value.includes('both teams to score') || value.includes('team to score')) return 'Gole';
+        if (value.includes('card')) return 'Kartki';
+        if (value.includes('corner')) return 'Różne';
+        if (value.includes('shot')) return 'Strzały';
+        if (value.includes('offside')) return 'Spalone';
+        if (value.includes('foul')) return 'Faule';
+        return 'Inne';
+    }
+
+    function marketGroupOrder(name) {
+        const order = {
+            'Gole': 0,
+            'Kartki': 1,
+            'Różne': 2,
+            'Strzały': 3,
+            'Spalone': 4,
+            'Faule': 5,
+            'Inne': 6,
+        };
+        return order[name] ?? 99;
+    }
+
+    function loadOpenMarketGroups() {
+        try {
+            const raw = localStorage.getItem(MARKET_GROUPS_LS_KEY);
+            if (!raw) return new Set();
+            const arr = JSON.parse(raw);
+            return Array.isArray(arr) ? new Set(arr.map(String)) : new Set();
+        } catch {
+            return new Set();
+        }
+    }
+
+    function saveOpenMarketGroups() {
+        try {
+            localStorage.setItem(MARKET_GROUPS_LS_KEY, JSON.stringify([...openMarketGroups]));
+        } catch {
+            // ignore localStorage errors
+        }
     }
 
     function loadDeletedRows() {
@@ -216,6 +335,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateBKHint() {
         bkHint.textContent = `Wybrane: ${selectedBestBK.size}/${allBookmakers.length} | Usunięte: ${deletedRows.size}`;
+    }
+
+    function updateArbBKHint() {
+        if (!arbBkHint) return;
+        arbBkHint.textContent = `Wybrane: ${selectedArbBK.size}/${allBookmakers.length}`;
     }
 
     function updateMarketHint() {
@@ -255,34 +379,121 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateBKHint();
     }
 
-    function renderMarketCheckboxes(markets) {
-        marketList.textContent = "";
+    function renderArbBookmakerCheckboxes(bookmakers) {
+        if (!arbBkList) return;
+        arbBkList.textContent = "";
         const frag = document.createDocumentFragment();
 
-        for (const market of markets) {
-            const marketLabel = marketLabelFromKey(market);
+        for (const bk of bookmakers) {
             const label = document.createElement("label");
             label.className = "flex items-center gap-2 text-sm";
 
             const cb = document.createElement("input");
             cb.type = "checkbox";
             cb.className = "h-4 w-4";
-            cb.checked = selectedMarkets.has(market);
+            cb.checked = selectedArbBK.has(bk);
 
             cb.addEventListener("change", () => {
-                if (cb.checked) selectedMarkets.add(market);
-                else selectedMarkets.delete(market);
+                if (cb.checked) selectedArbBK.add(bk);
+                else selectedArbBK.delete(bk);
 
-                saveSelectedMarkets();
-                updateMarketHint();
-                applyFilter();
+                saveSelectedArbBK();
+                updateArbBKHint();
+                if (currentData) {
+                    renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
+                    renderMiddlebetTable(currentData.middlebets ?? []);
+                }
             });
 
             const span = document.createElement("span");
-            span.textContent = marketLabel;
+            span.textContent = bk;
 
             label.append(cb, span);
             frag.appendChild(label);
+        }
+
+        arbBkList.appendChild(frag);
+        updateArbBKHint();
+    }
+
+    function renderMarketCheckboxes(markets) {
+        marketList.textContent = "";
+        const grouped = new Map();
+
+        for (const market of markets) {
+            const groupName = marketGroupKey(market);
+            if (!grouped.has(groupName)) grouped.set(groupName, []);
+            grouped.get(groupName).push(market);
+        }
+
+        const orderedGroups = [...grouped.entries()].sort((a, b) => {
+            const diff = marketGroupOrder(a[0]) - marketGroupOrder(b[0]);
+            return diff !== 0 ? diff : a[0].localeCompare(b[0], 'pl');
+        });
+
+        const frag = document.createDocumentFragment();
+        for (const [groupName, groupMarketsRaw] of orderedGroups) {
+            const groupMarkets = [...groupMarketsRaw].sort((a, b) => marketLabelFromKey(a).localeCompare(marketLabelFromKey(b), 'pl'));
+            const section = document.createElement('section');
+            section.className = 'market-group';
+            const isOpen = openMarketGroups.has(groupName);
+            section.classList.toggle('is-collapsed', !isOpen);
+
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'market-group-toggle';
+            toggle.textContent = groupName;
+
+            const count = document.createElement('span');
+            count.className = 'market-group-count';
+            count.textContent = `${groupMarkets.filter((market) => selectedMarkets.has(market)).length}/${groupMarkets.length}`;
+            toggle.appendChild(count);
+
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (section.classList.contains('is-collapsed')) {
+                    openMarketGroups = new Set([groupName]);
+                    saveOpenMarketGroups();
+                    renderMarketCheckboxes(allMarkets);
+                } else {
+                    section.classList.add('is-collapsed');
+                    openMarketGroups.delete(groupName);
+                    saveOpenMarketGroups();
+                }
+            });
+
+            const body = document.createElement('div');
+            body.className = 'market-group-body';
+            const grid = document.createElement('div');
+            grid.className = 'market-chip-grid';
+
+            for (const market of groupMarkets) {
+                const marketLabel = marketLabelFromKey(market);
+                const label = document.createElement('label');
+                label.className = 'market-chip';
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'h-4 w-4';
+                cb.checked = selectedMarkets.has(market);
+                cb.addEventListener('change', () => {
+                    if (cb.checked) selectedMarkets.add(market);
+                    else selectedMarkets.delete(market);
+                    saveSelectedMarkets();
+                    renderMarketCheckboxes(allMarkets);
+                    updateMarketHint();
+                    applyFilter();
+                });
+
+                const span = document.createElement('span');
+                span.textContent = marketLabel;
+                label.append(cb, span);
+                grid.appendChild(label);
+            }
+
+            body.appendChild(grid);
+            section.append(toggle, body);
+            frag.appendChild(section);
         }
 
         marketList.appendChild(frag);
@@ -428,13 +639,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const rid = String(row.id ?? "");
             if (!rid) continue;
             if (deletedRows.has(rid)) continue;
-            if ((row.surebet_type ?? "").toString() === "middle") continue;
-            const sbId = (row.surebet_id ?? "").toString().trim();
-            if (!sbId) continue;
-            if (!byId.has(sbId)) {
-                byId.set(sbId, []);
+            for (const surebet of getRowSurebets(row)) {
+                if ((surebet.surebet_type ?? "").toString() === "middle") continue;
+                const sbId = (surebet.surebet_id ?? "").toString().trim();
+                if (!sbId) continue;
+                if (!byId.has(sbId)) {
+                    byId.set(sbId, []);
+                }
+                byId.get(sbId).push({ row, surebet });
             }
-            byId.get(sbId).push(row);
         }
 
         const legSortWeight = (row) => {
@@ -454,29 +667,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const groups = [];
-        for (const [id, groupRowsRaw] of byId.entries()) {
-            const groupRows = [...groupRowsRaw].sort((a, b) => {
-                const [aw, ad] = legSortWeight(a);
-                const [bw, bd] = legSortWeight(b);
+        for (const [id, groupEntriesRaw] of byId.entries()) {
+            const groupEntries = [...groupEntriesRaw].sort((a, b) => {
+                const [aw, ad] = legSortWeight(a.row);
+                const [bw, bd] = legSortWeight(b.row);
                 if (aw !== bw) return aw - bw;
                 return ad.localeCompare(bd, 'pl');
             });
-            if (groupRows.length < 2) continue;
+            if (groupEntries.length < 2) continue;
 
-            const maxVal = groupRows.reduce((acc, r) => {
-                const v = Number.isFinite(r.surebet_value) ? r.surebet_value : NaN;
+            const bestBookmakers = [...new Set(
+                groupEntries
+                    .map((entry) => (entry?.row?.best_bk ?? "").toString().trim())
+                    .filter(Boolean)
+            )];
+            const passArbFilter = selectedArbBK.size === 0
+                ? true
+                : bestBookmakers.length > 0 && bestBookmakers.every((bk) => selectedArbBK.has(bk));
+            if (!passArbFilter) continue;
+
+            const maxVal = groupEntries.reduce((acc, entry) => {
+                const v = Number.isFinite(entry?.surebet?.surebet_value) ? entry.surebet.surebet_value : NaN;
                 if (!Number.isFinite(v)) return acc;
                 return Number.isFinite(acc) ? Math.max(acc, v) : v;
             }, NaN);
 
             groups.push({
                 id,
-                rows: groupRows,
+                entries: groupEntries,
                 value: maxVal,
-                match: (groupRows[0]?.match ?? "").toString(),
-                market: (groupRows[0]?.market ?? "").toString(),
-                period: (groupRows[0]?.period ?? "").toString(),
-                type: (groupRows[0]?.surebet_type ?? "surebet").toString(),
+                match: (groupEntries[0]?.row?.match ?? "").toString(),
+                market: (groupEntries[0]?.row?.market ?? "").toString(),
+                period: (groupEntries[0]?.row?.period ?? "").toString(),
+                surebetType: (groupEntries[0]?.surebet?.surebet_type ?? "").toString(),
+                bestBookmakers,
             });
         }
 
@@ -495,7 +719,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tr = document.createElement("tr");
             const td = document.createElement("td");
             td.className = "p-3 text-gray-600";
-            td.colSpan = 5;
+            td.colSpan = 4;
             td.textContent = "Brak surebetów w danych.";
             tr.appendChild(td);
             frag.appendChild(tr);
@@ -505,44 +729,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         for (const group of groups) {
-            const tr = document.createElement("tr");
+            group.entries.forEach((entry, index) => {
+                const leg = entry.row;
+                const tr = document.createElement("tr");
+                tr.className = index === 0 ? "sb-group-start" : "sb-group-cont";
 
-            const tdVal = document.createElement("td");
-            tdVal.className = "text-right p-2";
-            const pill = document.createElement("span");
-            pill.className = "sb-pill";
-            pill.textContent = Number.isFinite(group.value) ? fmtPct(group.value) : "—";
-            tdVal.appendChild(pill);
+                if (index === 0) {
+                    const tdVal = document.createElement("td");
+                    tdVal.className = "text-right p-2 sb-group-meta";
+                    tdVal.rowSpan = group.entries.length;
+                    const pill = document.createElement("span");
+                    pill.className = "sb-pill";
+                    pill.textContent = Number.isFinite(group.value) ? fmtPct(group.value) : "—";
+                    tdVal.appendChild(pill);
 
-            const tdMatch = document.createElement("td");
-            tdMatch.className = "p-2";
-            tdMatch.textContent = group.match;
+                    const tdMatch = document.createElement("td");
+                    tdMatch.className = "p-2 sb-group-meta";
+                    tdMatch.rowSpan = group.entries.length;
+                    tdMatch.textContent = group.match;
 
-            const tdMarket = document.createElement("td");
-            tdMarket.className = "p-2";
-            const marketName = document.createElement("div");
-            marketName.textContent = group.market;
-            tdMarket.appendChild(marketName);
-            if (group.period) {
-                const period = document.createElement("div");
-                period.className = "sb-period";
-                period.textContent = group.period;
-                tdMarket.appendChild(period);
-            }
+                    if (group.bestBookmakers.length > 0) {
+                        const meta = document.createElement("div");
+                        meta.className = "sb-period";
+                        meta.textContent = `Best: ${group.bestBookmakers.join(" + ")}`;
+                        tdMatch.appendChild(meta);
+                    }
 
-            const tdLegs = document.createElement("td");
-            tdLegs.className = "p-2";
-            tdLegs.colSpan = 2;
+                    const tdMarket = document.createElement("td");
+                    tdMarket.className = "p-2 sb-group-meta";
+                    tdMarket.rowSpan = group.entries.length;
+                    const marketName = document.createElement("div");
+                    marketName.textContent = group.surebetType === "surebet_cards_vs_yellow"
+                        ? "cards vs yellow cards"
+                        : group.market;
+                    tdMarket.appendChild(marketName);
+                    if (group.period) {
+                        const period = document.createElement("div");
+                        period.className = "sb-period";
+                        period.textContent = group.period;
+                        tdMarket.appendChild(period);
+                    }
 
-            const legsWrap = document.createElement("div");
-            legsWrap.className = `sb-legs sb-legs-${Math.min(group.rows.length, 3)}`;
-            for (const leg of group.rows) {
-                legsWrap.appendChild(renderSurebetLeg(leg, bookmakers));
-            }
-            tdLegs.appendChild(legsWrap);
+                    tr.append(tdVal, tdMatch, tdMarket);
+                }
 
-            tr.append(tdVal, tdMatch, tdMarket, tdLegs);
-            frag.appendChild(tr);
+                const tdLeg = document.createElement("td");
+                tdLeg.className = "p-2 sb-leg-cell";
+                tdLeg.appendChild(renderSurebetLeg(leg, bookmakers));
+                tr.appendChild(tdLeg);
+                frag.appendChild(tr);
+            });
         }
 
         surebetBody.textContent = "";
@@ -610,7 +846,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderMiddlebetTable(middlebets = []) {
         if (!middlebetBody) return;
         const list = Array.isArray(middlebets) ? middlebets : [];
-        const sorted = [...list].sort((a, b) => {
+        const filtered = list.filter((row) => {
+            const bestBookmakers = [
+                (row?.best_over_bk ?? "").toString().trim(),
+                (row?.best_under_bk ?? "").toString().trim(),
+            ].filter(Boolean);
+            if (selectedArbBK.size === 0) return true;
+            return bestBookmakers.length > 0 && bestBookmakers.every((bk) => selectedArbBK.has(bk));
+        });
+        const sorted = [...filtered].sort((a, b) => {
             const av = Number.isFinite(a?.roi_mid) ? a.roi_mid : -Infinity;
             const bv = Number.isFinite(b?.roi_mid) ? b.roi_mid : -Infinity;
             return bv - av;
@@ -803,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderMiddlebetTable(currentData.middlebets ?? []);
         applyFilter();
         updateBKHint();
+        updateArbBKHint();
         updateMarketHint();
     }
 
@@ -838,9 +1083,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         deletedRows = loadDeletedRows();
         selectedBestBK = loadSelectedBestBK(allBookmakers);
+        selectedArbBK = loadSelectedArbBK(allBookmakers);
         selectedMarkets = loadSelectedMarkets(allMarkets);
 
         renderBookmakerCheckboxes(allBookmakers);
+        renderArbBookmakerCheckboxes(allBookmakers);
         renderMarketCheckboxes(allMarkets);
         renderTable(data);
         renderSurebetTable(data.rows ?? [], data.bookmakers ?? []);
@@ -848,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         applyFilter();
         updateBKHint();
+        updateArbBKHint();
         updateMarketHint();
     } catch (e) {
         tbody.innerHTML = `<tr><td class="p-3 text-red-600" colspan="99">Błąd ładowania JSON: ${e.message}</td></tr>`;
@@ -910,10 +1158,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         fullRerender();
     });
 
+    arbBkAll?.addEventListener("click", () => {
+        selectedArbBK = new Set(allBookmakers);
+        saveSelectedArbBK();
+        renderArbBookmakerCheckboxes(allBookmakers);
+        if (currentData) {
+            renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
+            renderMiddlebetTable(currentData.middlebets ?? []);
+        }
+    });
+
+    arbBkNone?.addEventListener("click", () => {
+        selectedArbBK = new Set();
+        saveSelectedArbBK();
+        renderArbBookmakerCheckboxes(allBookmakers);
+        if (currentData) {
+            renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
+            renderMiddlebetTable(currentData.middlebets ?? []);
+        }
+    });
+
     marketAll.addEventListener("click", () => {
         selectedMarkets = new Set(allMarkets);
         saveSelectedMarkets();
-        marketList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        renderMarketCheckboxes(allMarkets);
         updateMarketHint();
         applyFilter();
     });
@@ -921,9 +1189,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     marketNone.addEventListener("click", () => {
         selectedMarkets = new Set();
         saveSelectedMarkets();
-        marketList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        renderMarketCheckboxes(allMarkets);
         updateMarketHint();
         applyFilter();
+    });
+
+    openMarketGroups = loadOpenMarketGroups();
+
+    if (marketToggle) {
+        setMarketPanelOpen(loadMarketPanelOpen());
+        marketToggle.addEventListener('click', () => {
+            const isCollapsed = marketPanelBody?.classList.contains('is-collapsed');
+            setMarketPanelOpen(!!isCollapsed);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        if (!marketPanelBody || marketPanelBody.classList.contains('is-collapsed')) return;
+        const clickedInsidePanel = event.target instanceof Element
+            && (!!event.target.closest('#marketPanelBody') || !!event.target.closest('#marketToggle'));
+        if (!clickedInsidePanel) {
+            if (openMarketGroups.size > 0) {
+                openMarketGroups.clear();
+                saveOpenMarketGroups();
+                renderMarketCheckboxes(allMarkets);
+            }
+        }
     });
 
     if (tabAll && tabSurebets) {
