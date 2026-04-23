@@ -29,10 +29,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bkNone = document.getElementById('bkNone');
     const bkHint = document.getElementById('bkHint');
     const bkRestoreDeleted = document.getElementById('bkRestoreDeleted');
-    const arbBkList = document.getElementById('arbBkList');
-    const arbBkAll = document.getElementById('arbBkAll');
-    const arbBkNone = document.getElementById('arbBkNone');
-    const arbBkHint = document.getElementById('arbBkHint');
     const marketList = document.getElementById('marketList');
     const marketAll = document.getElementById('marketAll');
     const marketNone = document.getElementById('marketNone');
@@ -41,7 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const marketPanelBody = document.getElementById('marketPanelBody');
 
     const LS_KEY = "bestbk_filter_selected_v1";
-    const ARB_LS_KEY = "arb_bestbk_filter_selected_v1";
     const MARKET_LS_KEY = "market_filter_selected_v1";
     const MARKET_PANEL_OPEN_KEY = "market_filter_panel_open_v1";
     const MARKET_GROUPS_LS_KEY = "market_filter_groups_open_v1";
@@ -50,9 +45,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let allBookmakers = [];
     let allMarkets = [];
     let selectedBestBK = new Set();
-    let selectedArbBK = new Set();
     let selectedMarkets = new Set();
-    let deletedRows = new Set();
+    let deletedRows = new Map();
     let openMarketGroups = new Set();
 
     let currentData = null;
@@ -61,6 +55,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const fmt2 = (x) => Number.isFinite(x) ? x.toFixed(2) : '';
     const fmtPct = (x) => Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : '';
+    const rowValue = (row) => {
+        if (Number.isFinite(row?.value_new)) return row.value_new;
+        if (Number.isFinite(row?.value)) return row.value;
+        return NaN;
+    };
 
     function getRowSurebets(row) {
         const surebets = Array.isArray(row?.surebets) ? row.surebets : [];
@@ -200,6 +199,66 @@ document.addEventListener('DOMContentLoaded', async () => {
         return ` [src: ${arr.join(" | ")}]`;
     }
 
+    function rowPassesMarketFilter(row) {
+        if (selectedMarkets.size === 0) return true;
+        const keys = new Set();
+        const marketKey = normalizeMarketKey(row?.market);
+        if (marketKey) keys.add(marketKey);
+        const sourceMarkets = Array.isArray(row?.source_markets) ? row.source_markets : [];
+        for (const market of sourceMarkets) {
+            const sourceKey = normalizeMarketKey(market);
+            if (sourceKey) keys.add(sourceKey);
+        }
+        return [...keys].some((key) => selectedMarkets.has(key));
+    }
+
+    function rerenderOpportunityTables() {
+        if (!currentData) return;
+        renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
+        renderMiddlebetTable(currentData.middlebets ?? []);
+    }
+
+    function markDeletedRecord(id, meta = {}) {
+        const rid = (id ?? "").toString().trim();
+        if (!rid) return;
+        deletedRows.set(rid, {
+            type: (meta.type ?? "row").toString(),
+            value: Number.isFinite(meta.value) ? meta.value : null,
+        });
+    }
+
+    function numberOrNull(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function deletedRecordStaysHidden(id, currentValue = null) {
+        const rid = (id ?? "").toString().trim();
+        if (!rid || !deletedRows.has(rid)) return false;
+
+        const meta = deletedRows.get(rid) ?? {};
+        const deletedValue = numberOrNull(meta.value);
+        const valueNow = numberOrNull(currentValue);
+        if (deletedValue !== null && valueNow !== null && valueNow > deletedValue) {
+            deletedRows.delete(rid);
+            saveDeletedRows();
+            updateBKHint();
+            return false;
+        }
+        return true;
+    }
+
+    function deleteOpportunityRecord(id, title, details, value, type) {
+        const rid = (id ?? "").toString().trim();
+        if (!rid) return;
+        const ok = confirm(`Usunąć ${title}?\n\n${details}`);
+        if (!ok) return;
+        markDeletedRecord(rid, { type, value });
+        saveDeletedRows();
+        updateBKHint();
+        rerenderOpportunityTables();
+    }
+
     function loadSelectedBestBK(defaultList) {
         try {
             const raw = localStorage.getItem(LS_KEY);
@@ -214,22 +273,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function saveSelectedBestBK() {
         localStorage.setItem(LS_KEY, JSON.stringify([...selectedBestBK]));
-    }
-
-    function loadSelectedArbBK(defaultList) {
-        try {
-            const raw = localStorage.getItem(ARB_LS_KEY);
-            if (!raw) return new Set(defaultList);
-            const arr = JSON.parse(raw);
-            if (!Array.isArray(arr)) return new Set(defaultList);
-            return new Set(arr.filter(x => defaultList.includes(x)));
-        } catch {
-            return new Set(defaultList);
-        }
-    }
-
-    function saveSelectedArbBK() {
-        localStorage.setItem(ARB_LS_KEY, JSON.stringify([...selectedArbBK]));
     }
 
     function loadSelectedMarkets(defaultList) {
@@ -319,27 +362,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     function loadDeletedRows() {
         try {
             const raw = localStorage.getItem(DELETED_KEY);
-            if (!raw) return new Set();
+            if (!raw) return new Map();
             const arr = JSON.parse(raw);
-            if (!Array.isArray(arr)) return new Set();
-            return new Set(arr.map(String));
+            if (!Array.isArray(arr)) return new Map();
+            const entries = [];
+            for (const item of arr) {
+                if (typeof item === "string") {
+                    entries.push([item, { type: "row", value: null }]);
+                    continue;
+                }
+                if (!item || typeof item !== "object") continue;
+                const id = (item.id ?? "").toString().trim();
+                if (!id) continue;
+                entries.push([
+                    id,
+                    {
+                        type: (item.type ?? "row").toString(),
+                        value: numberOrNull(item.value),
+                    },
+                ]);
+            }
+            return new Map(entries);
         } catch {
-            return new Set();
+            return new Map();
         }
     }
 
 
     function saveDeletedRows() {
-        localStorage.setItem(DELETED_KEY, JSON.stringify([...deletedRows]));
+        const payload = [...deletedRows.entries()].map(([id, meta]) => ({
+            id,
+            type: meta?.type ?? "row",
+            value: numberOrNull(meta?.value),
+        }));
+        localStorage.setItem(DELETED_KEY, JSON.stringify(payload));
     }
 
     function updateBKHint() {
         bkHint.textContent = `Wybrane: ${selectedBestBK.size}/${allBookmakers.length} | Usunięte: ${deletedRows.size}`;
-    }
-
-    function updateArbBKHint() {
-        if (!arbBkHint) return;
-        arbBkHint.textContent = `Wybrane: ${selectedArbBK.size}/${allBookmakers.length}`;
     }
 
     function updateMarketHint() {
@@ -366,6 +426,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 saveSelectedBestBK();
                 updateBKHint();
                 applyFilter();
+                rerenderOpportunityTables();
             });
 
             const span = document.createElement("span");
@@ -377,43 +438,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         bkList.appendChild(frag);
         updateBKHint();
-    }
-
-    function renderArbBookmakerCheckboxes(bookmakers) {
-        if (!arbBkList) return;
-        arbBkList.textContent = "";
-        const frag = document.createDocumentFragment();
-
-        for (const bk of bookmakers) {
-            const label = document.createElement("label");
-            label.className = "flex items-center gap-2 text-sm";
-
-            const cb = document.createElement("input");
-            cb.type = "checkbox";
-            cb.className = "h-4 w-4";
-            cb.checked = selectedArbBK.has(bk);
-
-            cb.addEventListener("change", () => {
-                if (cb.checked) selectedArbBK.add(bk);
-                else selectedArbBK.delete(bk);
-
-                saveSelectedArbBK();
-                updateArbBKHint();
-                if (currentData) {
-                    renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
-                    renderMiddlebetTable(currentData.middlebets ?? []);
-                }
-            });
-
-            const span = document.createElement("span");
-            span.textContent = bk;
-
-            label.append(cb, span);
-            frag.appendChild(label);
-        }
-
-        arbBkList.appendChild(frag);
-        updateArbBKHint();
     }
 
     function renderMarketCheckboxes(markets) {
@@ -483,6 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     renderMarketCheckboxes(allMarkets);
                     updateMarketHint();
                     applyFilter();
+                    rerenderOpportunityTables();
                 });
 
                 const span = document.createElement('span');
@@ -519,7 +544,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (const row of rows) {
             const rid = String(row.id ?? "");
             if (!rid) continue;
-            if (deletedRows.has(rid)) continue;
+            if (deletedRecordStaysHidden(rid)) continue;
 
             const tr = document.createElement("tr");
             tr.className = "border-t";
@@ -552,8 +577,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tdVal = document.createElement("td");
             tdVal.className = "text-right p-2";
             tdVal.dataset.col = "value";
-            tdVal.dataset.value = Number.isFinite(row.value) ? String(row.value) : "";
-            tdVal.textContent = fmt2(row.value);
+            const value = rowValue(row);
+            tdVal.dataset.value = Number.isFinite(value) ? String(value) : "";
+            tdVal.textContent = fmt2(value);
 
             const tdBest = document.createElement("td");
             tdBest.className = "p-2";
@@ -584,7 +610,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 description: (row.description ?? "").toString(),
                 textLower: `${row.match ?? ""} ${row.market ?? ""} ${row.description ?? ""} ${row.best_bk ?? ""}`.toLowerCase(),
                 diff: Number.isFinite(row.diff) ? row.diff : NaN,
-                value: Number.isFinite(row.value) ? row.value : NaN,
+                value,
                 odds: Number.isFinite(row.best_odds) ? row.best_odds : NaN,
                 bestBk: (row.best_bk ?? "").toString().trim(),
                 oddsByBookmaker: row.odds ?? {},
@@ -611,13 +637,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const ok = confirm(`Usunąć rekord?\n\n${m}\n${bestBk} | ${desc}`);
                 if (!ok) return;
 
-                deletedRows.add(rid);
+                markDeletedRecord(rid, { type: "row", value: null });
                 saveDeletedRows();
                 rowModel.deleted = true;
                 tr.remove();
                 updateBKHint();
                 applyFilter();
-                if (currentData) renderSurebetTable(currentData.rows ?? []);
+                rerenderOpportunityTables();
             });
 
             tdDelete.appendChild(btnDel);
@@ -638,7 +664,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (const row of rows) {
             const rid = String(row.id ?? "");
             if (!rid) continue;
-            if (deletedRows.has(rid)) continue;
+            if (deletedRecordStaysHidden(rid)) continue;
             for (const surebet of getRowSurebets(row)) {
                 if ((surebet.surebet_type ?? "").toString() === "middle") continue;
                 const sbId = (surebet.surebet_id ?? "").toString().trim();
@@ -675,22 +701,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return ad.localeCompare(bd, 'pl');
             });
             if (groupEntries.length < 2) continue;
+            if (!groupEntries.some((entry) => rowPassesMarketFilter(entry.row))) continue;
 
             const bestBookmakers = [...new Set(
                 groupEntries
                     .map((entry) => (entry?.row?.best_bk ?? "").toString().trim())
                     .filter(Boolean)
             )];
-            const passArbFilter = selectedArbBK.size === 0
+            const passBookmakerFilter = selectedBestBK.size === 0
                 ? true
-                : bestBookmakers.length > 0 && bestBookmakers.every((bk) => selectedArbBK.has(bk));
-            if (!passArbFilter) continue;
+                : bestBookmakers.length > 0 && bestBookmakers.every((bk) => selectedBestBK.has(bk));
+            if (!passBookmakerFilter) continue;
 
             const maxVal = groupEntries.reduce((acc, entry) => {
                 const v = Number.isFinite(entry?.surebet?.surebet_value) ? entry.surebet.surebet_value : NaN;
                 if (!Number.isFinite(v)) return acc;
                 return Number.isFinite(acc) ? Math.max(acc, v) : v;
             }, NaN);
+            if (deletedRecordStaysHidden(id, maxVal)) continue;
 
             groups.push({
                 id,
@@ -719,7 +747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tr = document.createElement("tr");
             const td = document.createElement("td");
             td.className = "p-3 text-gray-600";
-            td.colSpan = 4;
+            td.colSpan = 6;
             td.textContent = "Brak surebetów w danych.";
             tr.appendChild(td);
             frag.appendChild(tr);
@@ -777,6 +805,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tdLeg.className = "p-2 sb-leg-cell";
                 tdLeg.appendChild(renderSurebetLeg(leg, bookmakers));
                 tr.appendChild(tdLeg);
+
+                const tdRecordValue = document.createElement("td");
+                tdRecordValue.className = "text-right p-2 sb-leg-value";
+                const legValue = rowValue(leg);
+                tdRecordValue.textContent = Number.isFinite(legValue) ? fmt2(legValue) : "—";
+                tr.appendChild(tdRecordValue);
+
+                if (index === 0) {
+                    const tdDelete = document.createElement("td");
+                    tdDelete.className = "text-center p-2 sb-group-meta";
+                    tdDelete.rowSpan = group.entries.length;
+
+                    const btnDel = document.createElement("button");
+                    btnDel.type = "button";
+                    btnDel.title = "Usuń surebet";
+                    btnDel.className = "btn-del text-red-600 hover:text-red-800 text-lg";
+                    btnDel.textContent = "✖";
+                    btnDel.addEventListener("click", () => {
+                        deleteOpportunityRecord(
+                            group.id,
+                            "surebet",
+                            `${group.match}\n${group.market}\nBest: ${group.bestBookmakers.join(" + ")}`,
+                            group.value,
+                            "surebet"
+                        );
+                    });
+
+                    tdDelete.appendChild(btnDel);
+                    tr.appendChild(tdDelete);
+                }
                 frag.appendChild(tr);
             });
         }
@@ -847,12 +905,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!middlebetBody) return;
         const list = Array.isArray(middlebets) ? middlebets : [];
         const filtered = list.filter((row) => {
+            const rid = (row?.id ?? "").toString().trim();
+            if (rid && deletedRecordStaysHidden(rid, row?.roi_mid)) return false;
+            if (!rowPassesMarketFilter(row)) return false;
             const bestBookmakers = [
                 (row?.best_over_bk ?? "").toString().trim(),
                 (row?.best_under_bk ?? "").toString().trim(),
             ].filter(Boolean);
-            if (selectedArbBK.size === 0) return true;
-            return bestBookmakers.length > 0 && bestBookmakers.every((bk) => selectedArbBK.has(bk));
+            if (selectedBestBK.size === 0) return true;
+            return bestBookmakers.length > 0 && bestBookmakers.every((bk) => selectedBestBK.has(bk));
         });
         const sorted = [...filtered].sort((a, b) => {
             const av = Number.isFinite(a?.roi_mid) ? a.roi_mid : -Infinity;
@@ -869,7 +930,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tr = document.createElement("tr");
             const td = document.createElement("td");
             td.className = "p-3 text-gray-600";
-            td.colSpan = 5;
+            td.colSpan = 6;
             td.textContent = "Brak middlebetów w danych.";
             tr.appendChild(td);
             frag.appendChild(tr);
@@ -910,7 +971,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             tdUnder.className = "p-2";
             tdUnder.appendChild(renderMiddlebetLeg(row, "under"));
 
-            tr.append(tdVal, tdMatch, tdMarket, tdOver, tdUnder);
+            const tdDelete = document.createElement("td");
+            tdDelete.className = "text-center p-2";
+
+            const btnDel = document.createElement("button");
+            btnDel.type = "button";
+            btnDel.title = "Usuń middlebet";
+            btnDel.className = "btn-del text-red-600 hover:text-red-800 text-lg";
+            btnDel.textContent = "✖";
+            btnDel.addEventListener("click", () => {
+                deleteOpportunityRecord(
+                    row.id,
+                    "middlebet",
+                    `${row.match ?? ""}\n${row.market ?? ""}\n${row.over ?? ""} / ${row.under ?? ""}`,
+                    row.roi_mid,
+                    "middlebet"
+                );
+            });
+            tdDelete.appendChild(btnDel);
+
+            tr.append(tdVal, tdMatch, tdMarket, tdOver, tdUnder, tdDelete);
             frag.appendChild(tr);
         }
 
@@ -1043,11 +1123,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     function fullRerender() {
         if (!currentData) return;
         renderTable(currentData);
-        renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
-        renderMiddlebetTable(currentData.middlebets ?? []);
+        rerenderOpportunityTables();
         applyFilter();
         updateBKHint();
-        updateArbBKHint();
         updateMarketHint();
     }
 
@@ -1076,18 +1154,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         allBookmakers = data.bookmakers ?? [];
         allMarkets = [...new Set(
-            (data.rows ?? [])
-                .map(r => normalizeMarketKey(r.market))
+            [...(data.rows ?? []), ...(data.middlebets ?? [])]
+                .flatMap(r => [
+                    normalizeMarketKey(r.market),
+                    ...(Array.isArray(r.source_markets) ? r.source_markets.map(normalizeMarketKey) : []),
+                ])
                 .filter(Boolean)
         )].sort((a, b) => a.localeCompare(b, 'pl'));
 
         deletedRows = loadDeletedRows();
         selectedBestBK = loadSelectedBestBK(allBookmakers);
-        selectedArbBK = loadSelectedArbBK(allBookmakers);
         selectedMarkets = loadSelectedMarkets(allMarkets);
 
         renderBookmakerCheckboxes(allBookmakers);
-        renderArbBookmakerCheckboxes(allBookmakers);
         renderMarketCheckboxes(allMarkets);
         renderTable(data);
         renderSurebetTable(data.rows ?? [], data.bookmakers ?? []);
@@ -1095,7 +1174,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         applyFilter();
         updateBKHint();
-        updateArbBKHint();
         updateMarketHint();
     } catch (e) {
         tbody.innerHTML = `<tr><td class="p-3 text-red-600" colspan="99">Błąd ładowania JSON: ${e.message}</td></tr>`;
@@ -1140,6 +1218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bkList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
         updateBKHint();
         applyFilter();
+        rerenderOpportunityTables();
     });
 
     bkNone.addEventListener("click", () => {
@@ -1148,34 +1227,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         bkList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
         updateBKHint();
         applyFilter();
+        rerenderOpportunityTables();
     });
 
     bkRestoreDeleted.addEventListener("click", () => {
         const ok = confirm("Przywrócić WSZYSTKIE usunięte rekordy? (wyczyści localStorage)");
         if (!ok) return;
-        deletedRows = new Set();
+        deletedRows = new Map();
         localStorage.removeItem(DELETED_KEY);
         fullRerender();
-    });
-
-    arbBkAll?.addEventListener("click", () => {
-        selectedArbBK = new Set(allBookmakers);
-        saveSelectedArbBK();
-        renderArbBookmakerCheckboxes(allBookmakers);
-        if (currentData) {
-            renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
-            renderMiddlebetTable(currentData.middlebets ?? []);
-        }
-    });
-
-    arbBkNone?.addEventListener("click", () => {
-        selectedArbBK = new Set();
-        saveSelectedArbBK();
-        renderArbBookmakerCheckboxes(allBookmakers);
-        if (currentData) {
-            renderSurebetTable(currentData.rows ?? [], currentData.bookmakers ?? []);
-            renderMiddlebetTable(currentData.middlebets ?? []);
-        }
     });
 
     marketAll.addEventListener("click", () => {
@@ -1184,6 +1244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderMarketCheckboxes(allMarkets);
         updateMarketHint();
         applyFilter();
+        rerenderOpportunityTables();
     });
 
     marketNone.addEventListener("click", () => {
@@ -1192,6 +1253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderMarketCheckboxes(allMarkets);
         updateMarketHint();
         applyFilter();
+        rerenderOpportunityTables();
     });
 
     openMarketGroups = loadOpenMarketGroups();
