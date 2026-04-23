@@ -544,6 +544,14 @@ select:focus {
   width: auto;
 }
 
+#surebetTable .sb-col-value {
+  width: 86px;
+}
+
+#surebetTable .sb-col-action {
+  width: 58px;
+}
+
 #surebetTable th,
 #surebetTable td,
 #middlebetTable th,
