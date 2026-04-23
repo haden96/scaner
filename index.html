@@ -5,7 +5,6 @@
   <meta charset="UTF-8" />
   <title>Tabela Zakładów</title>
 
-  <!-- Tailwind -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
 
   <meta name="robots" content="noindex, nofollow">
@@ -89,20 +88,7 @@
         <span id="bkHint" class="hint"></span>
       </div>
       <div id="bkList" class="chip-grid"></div>
-      <p class="helper-text">Checkboxy filtrują wiersze po kolumnie „best”. Wybór i usunięte rekordy są zapisywane w localStorage.</p>
-    </section>
-
-    <section class="panel">
-      <div class="panel-header">
-        <p class="group-title">Filtr surebetów i middlebetów</p>
-        <div class="actions-inline">
-          <button id="arbBkAll" class="btn btn-small">Zaznacz wszystko</button>
-          <button id="arbBkNone" class="btn btn-small">Odznacz wszystko</button>
-        </div>
-        <span id="arbBkHint" class="hint"></span>
-      </div>
-      <div id="arbBkList" class="chip-grid"></div>
-      <p class="helper-text">Pokazuje tylko te surebety i middlebety, w których każdy najlepszy kurs należy do jednego z wybranych bukmacherów.</p>
+      <p class="helper-text">Checkboxy filtrują zwykłe wiersze, surebety i middlebety po najlepszych bukmacherach. Wybór i usunięte rekordy są zapisywane w localStorage.</p>
     </section>
 
     <section class="panel market-filter-panel">
@@ -159,6 +145,7 @@
               <col class="sb-col-match">
               <col class="sb-col-market">
               <col class="sb-col-leg">
+              <col class="sb-col-action">
             </colgroup>
             <thead>
               <tr>
@@ -166,6 +153,7 @@
                 <th class="text-left p-2">Mecz</th>
                 <th class="text-left p-2">Rynek</th>
                 <th class="text-left p-2">Wynik</th>
+                <th class="text-center p-2">Usuń</th>
               </tr>
             </thead>
             <tbody id="surebetBody"></tbody>
@@ -182,6 +170,7 @@
                 <th class="text-left p-2">Rynek</th>
                 <th class="text-left p-2">Over</th>
                 <th class="text-left p-2">Under</th>
+                <th class="text-center p-2">Usuń</th>
               </tr>
             </thead>
             <tbody id="middlebetBody"></tbody>
@@ -191,7 +180,6 @@
     </section>
   </div>
 
-  
   <script type="module" src="app.js?v=20260415"></script>
 </body>
 
